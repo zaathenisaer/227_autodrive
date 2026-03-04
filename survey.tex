@@ -890,6 +890,311 @@ and architectural context (the AD software stack) established in this section
 provide the essential scaffolding for the three-paradigm survey that follows.
 
 % ==========================================================
+\section{Paradigm I: Single-Agent Learning Foundations}
+\label{sec:paradigm1}
+
+The first paradigm in the evolution of learning-based autonomous driving
+(approximately 2016--2018) established the core machine-learning machinery
+that all subsequent multi-agent methods build upon.  During this period,
+researchers demonstrated that deep neural networks could learn end-to-end
+driving policies directly from raw sensory input, that reinforcement learning
+could optimize policies in simulated traffic without hand-engineered reward
+functions, and that interaction-aware trajectory prediction models could
+forecast the short-horizon futures of neighboring road users.  These
+contributions were transformative.  Yet they shared a common, fundamental
+blind spot: each method treated the traffic environment as if it contained
+only a single learning agent, ignoring the strategic interdependence between
+co-evolving policies.  This section surveys the key methods of Paradigm~I,
+assessing both their technical contributions and the precise limitations that
+motivated the multi-agent methods of Paradigm~II.
+
+% ------------------------------------------------------------------
+\subsection{Imitation Learning and Behavior Cloning}
+\label{sec:imitation}
+
+\subsubsection{End-to-End Learning: DAVE-2 and Successors}
+
+The dominant paradigm of the pre-deep-learning era decomposed driving into a
+pipeline of hand-engineered modules.  The landmark work of
+\citeauthor{bojarski2016end}~\cite{bojarski2016end} (the NVIDIA DAVE-2 system)
+challenged this paradigm with a radical simplification: a nine-layer
+convolutional neural network trained end-to-end to map raw front-facing camera
+images directly to a continuous steering command.  Trained on approximately
+72 hours of human driving data, DAVE-2 successfully navigated roads with
+explicit lane markings, roads without lane markings, and even parking lots in
+experiments, demonstrating that a single feed-forward network could implicitly
+learn the full perception-to-control mapping without any intermediate
+supervision.
+
+The contribution of DAVE-2 was primarily proof of concept: it established that
+deep imitation learning for driving was feasible at all.  Three concrete
+technical advantages emerged from the end-to-end formulation.  First, the
+network could learn task-relevant features automatically, without the need to
+specify which visual cues correspond to lane boundaries or upcoming obstacles.
+Second, training was data-efficient in the sense that the same labeled examples
+simultaneously improved all components of the pipeline, rather than requiring
+separate annotation budgets for perception, prediction, and planning.  Third,
+the absence of hand-crafted intermediate representations eliminated the
+information bottleneck inherent in multi-stage pipelines.
+
+\citeauthor{codevilla2018end}~\cite{codevilla2018end} extended this paradigm
+with \emph{Conditional Imitation Learning} (CIL), addressing the crucial
+limitation that a pure regression from image to steering cannot resolve the
+ambiguity of navigational goals.  At an intersection, for instance, the optimal
+steering command is entirely determined by whether the destination lies ahead,
+to the left, or to the right---information absent from any single camera frame.
+CIL conditions the policy on a high-level navigational command (``turn left'',
+``go straight'', ``turn right'', ``follow road'') provided by a route planner,
+using a branched network architecture where each branch is activated only when
+the corresponding command is issued.  On the CARLA simulator benchmark, CIL
+substantially outperformed unconditional imitation baselines, establishing the
+conditional architecture as the standard recipe for end-to-end urban driving.
+
+Despite these advances, end-to-end imitation learning suffers from a
+structural weakness known as \emph{covariate shift}~\cite{bansal2018chauffeur}.
+A behavior-cloned policy is trained exclusively on states visited by the expert
+demonstrator, but at test time the agent's own imperfect actions progressively
+deviate from the expert's trajectory, leading the agent into novel states
+$s \notin \mathcal{D}_{\text{train}}$ for which the cloned policy has no
+reliable prediction.  Small errors compound: a slight drift to the right of the
+lane at time $t$ places the agent in an out-of-distribution state at time
+$t+1$, and the policy---never trained to recover from such states---may respond
+with an erratic command that amplifies the error further.  In the single-agent
+setting, this is already a critical failure mode; in multi-agent traffic, where
+the state space is enlarged by the behaviors of surrounding vehicles, the
+covariate shift problem becomes dramatically more severe.
+
+\subsubsection{Addressing Covariate Shift: DAgger and Data Augmentation}
+
+The theoretical solution to covariate shift is \emph{Dataset Aggregation}
+(DAgger), introduced by \citeauthor{ross2011reduction}~\cite{ross2011reduction}.
+DAgger is an iterative on-policy imitation learning algorithm: at each round,
+the current learned policy $\hat{\pi}_t$ is rolled out in the environment,
+collecting a dataset of states $\mathcal{D}_t$ actually visited by the
+(imperfect) learner.  Expert labels are then queried for those visited states,
+and the policy is retrained on the growing aggregate dataset
+$\mathcal{D}_1 \cup \cdots \cup \mathcal{D}_t$.  By ensuring that the
+training distribution matches the \emph{learner's} state distribution rather
+than the expert's, DAgger provides a no-regret guarantee: the cumulative
+cost of the learned policy converges to that of the best policy in the
+hypothesis class.  The catch is that DAgger requires an interactive expert
+capable of labeling any state the learner might visit---expensive in terms of
+human annotation or oracle computation.
+
+\citeauthor{bansal2018chauffeur}~\cite{bansal2018chauffeur} addressed the same
+problem at industrial scale in \emph{ChauffeurNet}, trained on over 30 million
+labeled driving examples from Waymo's real-world fleet.  Their key finding was
+counterintuitive: even at this scale, a policy trained on clean expert
+demonstrations failed to generalize to novel test scenarios.  Recovery from
+suboptimal states---a near-collision, a vehicle temporarily off the lane
+center---could not be learned from demonstrations that never showed such
+situations.  The solution was \emph{perturbation-based data augmentation}: the
+training data was synthetically corrupted by injecting random perturbations into
+the rendered bird's-eye-view inputs, and the expert labels were queried for
+these perturbed states.  ChauffeurNet operates on a mid-level representation
+(a top-down rendering of the scene including agent boxes, road structure, and
+traffic lights) rather than raw pixels, making it possible to generate
+perturbed variants analytically.  The resulting policy demonstrated markedly
+improved robustness to distributional shift and was shown to transfer to
+real-vehicle trials.
+
+A critical limitation of ChauffeurNet and DAgger-style approaches persists,
+however: the perturbations are applied in isolation, treating the ego-vehicle
+as the only actor whose state can deviate from nominal.  In reality, the
+distribution of \emph{other} vehicles' states---the speed of the car ahead
+that is braking unexpectedly, the trajectory of a pedestrian who begins to
+cross at an atypical moment---is equally unconstrained at test time.  No
+synthetic augmentation scheme that treats only the ego-vehicle as a random
+variable can capture the full diversity of multi-agent traffic interaction.
+The fundamental gap is architectural: behavior cloning models a policy
+$\pi(a \mid o)$ that responds to observations of other agents but does not
+\emph{reason about} them as co-equal agents pursuing their own objectives.
+
+% ------------------------------------------------------------------
+\subsection{Reinforcement Learning for Single-Agent Driving}
+\label{sec:rl_single}
+
+Reinforcement learning removes the requirement for expert demonstrations by
+optimizing the policy directly against a reward signal.  The agent improves
+through trial-and-error interaction with the environment, discovering
+behaviors that maximize cumulative reward without supervision from
+demonstrations.
+
+\citeauthor{sallab2017deep}~\cite{sallab2017deep} proposed one of the earliest
+applications of deep RL to autonomous driving, combining a recurrent
+architecture (LSTM-augmented policy network) with an asynchronous actor-critic
+training scheme.  The recurrent state allowed the policy to maintain an
+implicit belief over the full driving history, partially compensating for the
+limited field of view of a single camera.  Their framework was evaluated in a
+lane-keeping and lane-change scenario in a simulated highway environment,
+demonstrating that policies trained with deep RL could match and exceed the
+performance of rule-based baselines without any explicit traffic rules being
+programmed.
+
+For continuous-action driving tasks---where the output is a real-valued
+steering angle and throttle rather than a discrete maneuver selection---
+Proximal Policy Optimization~\cite{schulman2017proximal} emerged as the
+dominant training algorithm due to its balance of sample efficiency, stability,
+and ease of implementation.  Unlike TRPO, which solves a constrained
+optimization at each step, PPO enforces the trust-region constraint
+approximately via a clipped surrogate objective, making it computationally
+tractable for long-horizon driving rollouts.  PPO-trained policies for
+lane-following, intersection navigation, and roundabout negotiation in CARLA
+became the standard single-agent baselines against which multi-agent methods
+are later evaluated.
+
+\citeauthor{kahn2017uncertainty}~\cite{kahn2017uncertainty} addressed an
+orthogonal limitation of standard deep RL for driving: the inability to reason
+about uncertainty in the learned value function.  Standard model-free RL
+explores aggressively, which is acceptable in video-game environments but
+catastrophic in physical or realistically simulated driving.  Their
+\emph{PLATO} system maintained an ensemble of neural network dynamics models,
+using the disagreement between ensemble members as a proxy for epistemic
+uncertainty.  A safety-constrained planner avoided actions that led to
+high-uncertainty states, dramatically reducing collision rates during the
+exploration phase.  This work anticipated the broader \emph{safe RL}
+literature that became crucial once MARL methods were deployed in real traffic.
+
+\citeauthor{chen2019model}~\cite{chen2019model} tackled the structural
+complexity of urban driving by decomposing the policy into hierarchical
+sub-tasks.  Their model-free hierarchical RL framework trained a high-level
+meta-controller to select among driving primitives (``change to left lane'',
+``follow current lane'', ``decelerate'') and a set of low-level primitive
+controllers to execute each selected behavior.  This temporal abstraction
+reduced the effective planning horizon for each sub-policy and allowed
+different primitives to be trained in targeted scenarios rather than requiring
+all behaviors to emerge from a single flat policy.  The approach achieved
+substantially better performance on urban intersection scenarios with
+uncontrolled traffic in CARLA compared to flat PPO baselines, at the cost of
+requiring manual specification of the primitive taxonomy.
+
+Despite these advances, single-agent RL methods share a critical structural
+limitation when deployed in multi-vehicle environments: from any individual
+agent's perspective, other vehicles are part of the environment, and if those
+vehicles are also learning agents (as in any MARL training run), the transition
+function $P(s' \mid s, a)$ experienced by the ego-agent is \emph{non-stationary}.
+As the policies of surrounding vehicles update during training, the
+distribution of their actions---and hence the joint transition distribution---
+shifts continuously.  This violates the stationarity assumption underlying
+all convergence guarantees for single-agent RL algorithms.  The empirical
+consequence is well-documented: single-agent PPO policies that perform
+excellently in scenarios with scripted, rule-based traffic participants
+degrade significantly when evaluated against other trained-RL agents, because
+the behavioral distribution of those agents was never seen during training.
+
+% ------------------------------------------------------------------
+\subsection{Interaction-Aware Trajectory Prediction (Single-Agent Perspective)}
+\label{sec:prediction_single}
+
+In parallel with the policy-learning literature, a distinct research thread
+focused on improving the \emph{prediction} of other agents' future trajectories
+from the perspective of a single observing ego-vehicle.  Accurate trajectory
+prediction is a prerequisite for safe planning: the ego-agent needs short-horizon
+forecasts of surrounding agents to evaluate whether a given maneuver (e.g.,
+a lane change) will produce a collision.
+
+The seminal work in this direction is Social LSTM by
+\citeauthor{alahi2016social}~\cite{alahi2016social}, which modeled pedestrian
+trajectory prediction in crowded spaces.  A key contribution was the
+\emph{Social Pooling} mechanism: rather than predicting each pedestrian's
+trajectory independently, the LSTM hidden states of all pedestrians in a
+spatial neighborhood were pooled together into a joint context vector that
+informed each individual's prediction.  This enabled the model to capture
+interaction-induced behaviors such as collision avoidance and group formation.
+In the driving context, the grid-based pooling was adapted to model how
+neighboring vehicles' current velocities and headings influence the ego-vehicle's
+trajectory distribution.  \citeauthor{deo2018convolutional}~\cite{deo2018convolutional}
+refined this approach with \emph{Convolutional Social Pooling}, replacing the
+fixed-grid occupancy representation with a learned convolutional aggregation
+that better captured spatial structure in highway merging scenarios.
+
+\citeauthor{lee2017desire}~\cite{lee2017desire} (DESIRE) introduced a
+more powerful generative modeling framework for trajectory prediction,
+combining a conditional variational autoencoder (CVAE) with a recurrent
+inverse RL component.  DESIRE generates a diverse set of candidate future
+trajectories using the CVAE's latent code and then ranks them with a
+learned scoring function that evaluates social acceptability and adherence
+to the inferred reward function.  The key advance over Social LSTM was the
+\emph{multi-modal} output: rather than predicting a single most-likely
+trajectory, DESIRE explicitly samples from a distribution of plausible
+futures, which is essential when agents face genuine decision ambiguity
+(e.g., whether to merge before or after an approaching vehicle).
+
+\citeauthor{gupta2018social}~\cite{gupta2018social} (Social GAN) pushed the
+multi-modal paradigm further by replacing the CVAE with a generative
+adversarial network (GAN).  The generator samples diverse trajectory
+proposals conditioned on a \emph{Global Pooling} mechanism that aggregates
+all agents' encoded histories into a single scene-level feature vector.
+A discriminator is trained to distinguish generated trajectories from
+ground-truth ones, enforcing social plausibility of the output distribution.
+Social GAN was among the first works to demonstrate that diversity of
+predicted trajectories could be evaluated quantitatively via metrics such as
+the \emph{Minimum over $K$ samples} displacement error (minFDE-$K$), which
+evaluates how close the best of $K$ generated trajectories is to the
+ground truth.  This metric subsequently became a standard benchmark
+across the prediction literature.
+
+A critical limitation shared by Social LSTM, DESIRE, and Social GAN is the
+\emph{prediction-planning disconnect}: all three systems predict the
+trajectories of surrounding agents assuming the \emph{ego-agent's trajectory
+is fixed}.  In reality, the ego-vehicle's own planned action influences
+what neighboring agents will do.  A vehicle planning to brake suddenly
+elicits very different behaviors from the vehicle behind it than a vehicle
+planning to accelerate.  This bidirectional coupling---prediction depends on
+planning, planning depends on prediction---cannot be captured by any model
+that treats prediction as a feed-forward module upstream of a separate planner.
+The merged prediction-planning paradigm (PiP~\cite{song2020pip}) that addresses
+this coupling appears only in Paradigm~II, once the representational tools
+(VectorNet, graph neural networks) for encoding it compactly became available.
+
+% ------------------------------------------------------------------
+\subsection{Critical Analysis: Limitations Driving Paradigm~II}
+\label{sec:paradigm1_limits}
+
+The methods surveyed in this section collectively constitute Paradigm~I:
+a set of powerful tools, each optimal within its problem formulation, but
+each resting on a single-agent assumption that breaks down systematically
+in dense, interactive traffic.  Three concrete failure modes emerged clearly
+from the literature and directly motivated the MARL methods of Paradigm~II.
+
+\textbf{(1) Covariate shift in imitation learning.}
+Behavior-cloned policies are trained on expert state distributions but
+evaluated on their own (drifting) state distributions.  DAgger and
+perturbation-based augmentation mitigate but do not eliminate this gap;
+crucially, neither addresses the co-evolution of surrounding agents'
+states.  The structural fix---learning from a reward signal via RL rather
+than pure imitation, or from diverse multi-agent interaction data---is the
+entry point for Paradigm~II's policy-gradient and CTDE methods.
+
+\textbf{(2) Non-stationarity in single-agent RL.}
+Deploying a single-agent RL policy in a multi-vehicle environment makes
+the transition function non-stationary from the ego-agent's perspective.
+Convergence guarantees evaporate, and policies trained against scripted
+opponents fail to generalize to adaptive opponents.  The CTDE framework
+(Section~\ref{sec:paradigm2})---in which a centralized critic conditions
+on the joint action of all agents during training while decentralized
+actors act locally at execution---resolves non-stationarity at training
+time by explicitly acknowledging the multi-agent structure of the value
+function.
+
+\textbf{(3) Prediction-planning disconnect.}
+Single-agent perspective trajectory predictors model other agents as
+external stochastic processes, ignoring the ego-vehicle's reactive
+influence on those processes.  This is acceptable for distant agents
+or low-traffic-density scenarios, but fails catastrophically in
+tight merging and yielding interactions where agents continuously
+update their intentions in response to each other.  The bidirectional
+prediction-planning methods of Paradigm~II (PiP~\cite{song2020pip},
+game-theoretic planners~\cite{sadigh2016planning,fisac2019hierarchical})
+address this coupling directly.
+
+Together, these three failure modes define the problem that Paradigm~II
+sets out to solve: endowing autonomous vehicles with a genuinely
+\emph{multi-agent} view of traffic, in which all participants are treated
+as co-equal agents with evolving policies rather than as independently
+sampled stochastic obstacles.
+
+% ==========================================================
 \bibliographystyle{unsrtnat}
 \bibliography{references}
 
