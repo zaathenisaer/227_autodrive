@@ -465,7 +465,7 @@ examining MARL algorithms, communication and coordination protocols,
 interaction-aware representation, and autonomous driving applications.
 Section~\ref{sec:paradigm3} covers scalable and cognitive architectures
 (Paradigm~III), including Transformer-based MARL and LLM-driven agents.
-Section~\ref{sec:benchmarks} surveys simulation environments and
+Section~\ref{sec:sim} surveys simulation environments and
 evaluation benchmarks.
 Section~\ref{sec:challenges} synthesizes open challenges and future
 directions.
@@ -1943,6 +1943,810 @@ Transformer architectures that improve sample efficiency and global dependency
 modeling, and large language models that supply commonsense reasoning for
 long-tail scenarios while generating natural-language explanations of agent
 decisions.
+
+% ==========================================================
+\section{Paradigm III: Transformer-Based and LLM-Augmented MARL}
+\label{sec:paradigm3}
+
+Paradigm~III (approximately 2021--present) addresses the two most persistent
+failure modes of Paradigm~II---interpretability deficit and long-tail
+generalization failure---by importing two complementary architectural
+innovations from natural language processing.  Transformer models provide a
+principled mechanism for capturing global inter-agent dependencies via
+scaled dot-product attention, eliminating the need for hand-crafted
+communication graphs and delivering state-of-the-art performance on cooperative
+benchmarks.  Large language models (LLMs) encode commonsense knowledge about
+traffic conventions, traffic law, and human behavior learned from vast textual
+corpora, enabling zero-shot handling of novel scenarios and producing
+natural-language reasoning traces that serve as built-in explanations.
+
+\subsection{Transformer Architectures for MARL}
+
+\subsubsection{Sequential Decision Making as Sequence Modeling}
+
+A foundational conceptual shift occurred when
+\citeauthor{vaswani2017attention}~\cite{vaswani2017attention} demonstrated
+that the Transformer architecture---purely attention-based, without recurrence
+or convolution---achieves superior performance on sequence modeling tasks.
+The RL community subsequently recognized that trajectories (state, action,
+reward triplets over time) are sequences, and that a sufficiently expressive
+sequence model conditioned on return-to-go can imitate offline RL without
+explicit value function learning.
+
+\citeauthor{chen2021decision}~\cite{chen2021decision} (Decision Transformer)
+formalized this idea: the model autoregressively predicts the action at time
+$t$ given the sequence
+$(\hat{R}_1, s_1, a_1, \hat{R}_2, s_2, a_2, \ldots, \hat{R}_t, s_t)$,
+where $\hat{R}_t$ is the desired return from timestep $t$ forward.  By
+conditioning on high desired returns at inference time, the model imitates
+expert behavior without Bellman backups, eliminating the instability of
+off-policy TD learning.  In the autonomous driving context, this is
+particularly attractive: large-scale real-world driving logs (Waymo, nuScenes,
+Argoverse) can be used directly as offline training data, bypassing the need
+for reward annotation beyond basic safety and comfort metrics.
+
+\citeauthor{janner2021offline}~\cite{janner2021offline} (Trajectory Transformer)
+extended sequence modeling to the full trajectory distribution, predicting
+states and rewards alongside actions and using beam search over the joint
+state-action-reward sequence as an implicit planning algorithm.  By treating
+planning as inference in a learned trajectory model, the Trajectory Transformer
+avoids the compounding errors of model-based rollouts that plague standard
+world-model approaches, at the cost of beam search's computational overhead.
+
+\citeauthor{parisotto2020stabilizing}~\cite{parisotto2020stabilizing}
+(Gated Transformer-XL, GTrXL) identified a fundamental training instability
+when applying standard Transformers to online RL: deep Transformer architectures
+are sensitive to the ordering of layer normalization and to the loss of temporal
+context across episodes.  GTrXL stabilizes training by combining gating
+mechanisms inspired by LSTM with Transformer-XL's segment-level recurrence,
+enabling stable credit assignment over long temporal horizons---a key
+requirement for urban driving episodes that span dozens of seconds.
+
+The shared limitation of these three methods is that they are fundamentally
+\emph{offline}: they require pre-collected, return-labeled datasets and do
+not support online refinement through environment interaction without
+significant architectural modification.  In the multi-agent setting,
+return-labeled offline datasets must include the joint trajectories of all
+agents to capture interaction effects, substantially raising the data
+collection burden.
+
+\subsubsection{Multi-Agent Transformer}
+
+\citeauthor{wen2022multi}~\cite{wen2022multi} (Multi-Agent Transformer, MAT)
+proposed the first Transformer architecture designed specifically for the
+cooperative MARL setting.  The key insight is to model the joint action
+generation as an \emph{autoregressive sequence} over agents: an encoder
+processes all agents' observations jointly via self-attention, producing
+contextualized embeddings that capture global dependencies; a decoder then
+generates each agent's action conditioned on the joint observations and
+the actions of agents processed so far in the sequential ordering.
+
+This encoder-decoder design has two important properties.  First, the encoder
+attention computes pairwise agent-to-agent relevance scores, providing an
+interpretable measure of which agents are most influential for each agent's
+decision---a form of implicit communication without a hand-designed protocol.
+Second, the autoregressive decoder makes the conditional action
+generation explicit, allowing the model to express complex joint action
+distributions (including mode-switching behavior where the optimal action for
+agent $i$ changes discontinuously depending on what agent $j$ has chosen)
+that factored policies cannot represent.  MAT achieved state-of-the-art
+performance on SMAC~\cite{samvelyan2019starcraft} and Google Research Football
+benchmarks, outperforming MAPPO and QMIX while using a single training run.
+
+\citeauthor{papoudakis2021benchmarking}~\cite{papoudakis2021benchmarking}
+provided a rigorous empirical comparison of MARL algorithms in cooperative
+continuous-control tasks, finding that attention-augmented policies
+consistently outperform graph-communication baselines on tasks requiring
+global coordination, while parameter-shared policies without attention
+suffice for tasks with only local dependencies.  This benchmark clarified
+when the additional complexity of Transformer-based coordination is
+justified---a practical guide for autonomous driving system designers.
+
+The principal limitation of MAT is its $\mathcal{O}(n^2)$ attention
+complexity in the number of agents $n$: for large fleets of hundreds of
+vehicles, the encoder becomes computationally prohibitive.  Approximate
+attention mechanisms (sparse attention, locality-sensitive hashing) have
+been explored in the NLP literature but have not yet been validated in the
+multi-agent driving context.
+
+\subsubsection{GNN and Transformer Hybrid Models}
+
+\citeauthor{li2020deep}~\cite{li2020deep} combined graph neural networks
+with Transformer-style attention for MARL: the GNN encodes the sparse local
+topology of the agent interaction graph (capturing physical proximity and
+line-of-sight constraints), while Transformer attention refines the
+resulting embeddings by attending to globally relevant agents regardless
+of graph distance.  This hybrid captures complementary properties: GNNs
+model the sparse, physically motivated interaction structure at low
+computational cost; Transformers model long-range semantic dependencies.
+For autonomous driving, the hybrid is well-suited to highway scenarios where
+vehicles in adjacent lanes interact locally while vehicles planning intersection
+crossings must attend to distant agents approaching from perpendicular streets.
+
+\subsection{Large Language Models as Cognitive Driving Agents}
+
+\subsubsection{LLM as Commonsense Reasoner}
+
+A structurally different approach to long-tail driving scenarios treats the
+LLM not as a trajectory generator but as a \emph{cognitive reasoning module}
+that processes high-level scene descriptions and produces behavioral directives.
+
+\citeauthor{fu2023drive}~\cite{fu2023drive} (Drive Like a Human) demonstrated
+that GPT-4, prompted with a natural-language description of the driving scenario
+and the available actions, can produce correct driving decisions via
+chain-of-thought reasoning in situations where purely reactive ML systems fail.
+The critical finding is that LLM reasoning leverages commonsense knowledge
+about traffic law, social norms, and causal consequences that is absent from
+driving-specific training datasets: an LLM can infer that a school bus with
+flashing lights requires stopping even if no example of this situation appeared
+in the training data, because the relevant causal chain (school zone, children
+crossing, legal obligation) is richly represented in its pre-training corpus.
+
+\citeauthor{brown2020language}~\cite{brown2020language} provided the foundational
+result on which this approach rests: large language models exhibit few-shot and
+zero-shot reasoning capabilities that scale with model size and training
+compute.  GPT-3's in-context learning ability enables task adaptation without
+any gradient updates, making LLM-based driving agents immediately deployable
+across diverse scenarios without scenario-specific fine-tuning.
+
+\citeauthor{wang2023voyager}~\cite{wang2023voyager} (Voyager) demonstrated a
+more structured LLM-agent loop in a simulation environment: the LLM
+proposes skill programs (Python code) based on its current inventory and goal,
+executes them, and accumulates a library of reusable skills stored in a vector
+database.  The skill accumulation mechanism enables lifelong learning without
+catastrophic forgetting: new tasks are addressed by retrieving and composing
+prior skills.  Applied to driving, this paradigm suggests that an LLM agent
+could accumulate a library of driving sub-routines (``execute lane change when
+gap exceeds 3 seconds'', ``yield to pedestrians when crossing indicator is
+active'') that are composed at inference time to address novel scenarios.
+
+\subsubsection{Memory-Augmented Lifelong Adaptation}
+
+\citeauthor{wen2023dilu}~\cite{wen2023dilu} (DiLu) designed a two-module
+LLM-based driving agent with explicit memory infrastructure: a
+\emph{memory module} that stores past driving episodes as (scenario, decision,
+outcome) tuples indexed by a learned similarity function, and a
+\emph{reflection module} that periodically reviews stored episodes, identifies
+failure patterns, and updates a compact textual policy summary used for future
+decisions.  DiLu maintains performance across diverse driving scenarios without
+catastrophic forgetting---a persistent failure mode of standard gradient-based
+fine-tuning---because the policy is stored as an updateable text document
+rather than neural network weights.
+
+The broader significance of DiLu is that it proposes a new paradigm for
+continual adaptation: instead of retraining neural weights, the agent's
+policy is represented in natural language, updated by the LLM's reasoning
+capability, and immediately interpretable by human safety auditors.  This
+addresses the interpretability deficit of Paradigm~II directly: every policy
+update is accompanied by a natural-language justification.
+
+\subsubsection{LLM as Motion Planner}
+
+\citeauthor{mao2023gpt}~\cite{mao2023gpt} (GPT-Driver) framed waypoint
+generation as a language completion task: the scene context (ego state,
+surrounding agent states, map description, traffic rules) is serialized
+into a structured text prompt, and the LLM completes the prompt by generating
+a sequence of $(x, y, \theta, v)$ waypoints.  By fine-tuning GPT-3.5 on
+a large dataset of expert driving trajectories paired with scene descriptions,
+GPT-Driver matched the performance of end-to-end neural planners on the
+nuScenes benchmark while producing structured, human-readable intermediate
+representations.
+
+The principal limitation of LLM-as-planner is the imprecise mapping from
+natural language to continuous spatial coordinates: the model may generate
+syntactically valid waypoints that are geometrically invalid (intersecting
+with lane boundaries or other vehicles) because spatial reasoning is not
+reliably grounded in the token prediction objective.  Post-hoc constraint
+checking and rejection sampling mitigate this, at the cost of additional
+inference latency.
+
+\subsubsection{Neuro-Symbolic Hybrid: LLM and Model Predictive Control}
+
+\citeauthor{sha2023languagempc}~\cite{sha2023languagempc} (LanguageMPC)
+resolved the latency-accuracy tension by \emph{decoupling} LLM reasoning
+from real-time trajectory optimization.  The LLM operates at a low frequency
+($\sim$1\,Hz) to produce behavioral parameters: cost weights for a
+Model Predictive Control (MPC) objective that encodes the semantic intent
+(``prioritize speed'', ``increase lateral clearance from truck'').  The
+MPC controller then operates at 20\,Hz, solving a constrained quadratic
+program with the LLM-generated cost weights to produce dynamically feasible,
+collision-free trajectories with formal safety guarantees at the execution level.
+
+This neuro-symbolic architecture achieves the best of both worlds: the LLM's
+commonsense reasoning handles the semantic, long-tail aspects of driving
+decisions at low frequency, while the MPC's formal trajectory optimization
+handles the real-time, safety-critical aspects.  Experiments in nuPlan
+demonstrated that LanguageMPC outperforms pure end-to-end models on
+non-reactive long-tail scenarios while maintaining formal collision-avoidance
+guarantees that purely LLM-based planners cannot provide.
+
+\subsection{Safety and Robustness in MARL}
+\label{sec:safety}
+
+The deployment of MARL policies in safety-critical domains requires guarantees
+beyond empirical reward maximization.  Three complementary approaches have
+emerged: constrained optimization, formal shielding, and risk-sensitive
+objectives.
+
+\citeauthor{achiam2017constrained}~\cite{achiam2017constrained} (CPO,
+Constrained Policy Optimization) extended the trust-region RL framework to
+Constrained Markov Decision Processes (CMDPs), where the agent must satisfy
+a constraint on the expected cumulative cost (e.g., collision rate) in addition
+to maximizing reward.  CPO provides a first-order guarantee that the policy
+update is feasible---satisfying the constraint at every update step---rather
+than only at convergence.  In the multi-agent driving context, the collision
+constraint can be defined per-agent, and the centralized critic of CTDE methods
+can evaluate the constraint on the joint policy, providing a multi-agent
+extension of the CMDP framework.
+
+\citeauthor{alshiekh2018safe}~\cite{alshiekh2018safe} (Safe RL via shielding)
+introduced the concept of a \emph{shield}: a formal safety filter, specified
+as a linear temporal logic (LTL) formula, that intercepts the RL policy's
+proposed action and replaces it with the nearest safe action whenever the
+proposed action would lead to a formula violation.  Unlike CPO, which enforces
+constraints through soft penalization, the shield provides a hard guarantee:
+the deployed policy can \emph{never} violate the LTL specification.  The
+limitation is that the LTL model must be hand-crafted and must capture all
+relevant safety constraints, a task that becomes complex for multi-lane, multi-agent
+urban scenarios.  Furthermore, the shield requires a model of the environment
+dynamics to evaluate constraint satisfaction, introducing a dependency on
+model accuracy.
+
+\citeauthor{prashanth2016variance}~\cite{prashanth2016variance} proposed
+variance-constrained and CVaR (Conditional Value at Risk) objectives for RL,
+formalizing risk-averse behavior: rather than maximizing expected reward, the
+agent maximizes the $\alpha$-CVaR---the expected reward in the worst $\alpha$
+fraction of trajectories.  CVaR optimization produces policies that trade some
+average-case performance for substantially improved worst-case behavior,
+which is the appropriate objective for safety-critical applications where
+catastrophic failures must be avoided even if their probability is low.
+
+\subsection{Sim-to-Real Transfer and Domain Generalization}
+
+A persistent gap separates policies trained in simulation from their
+performance when deployed in physical vehicles.  The sim-to-real gap
+arises from three sources: perceptual differences (simulated sensors are
+idealized), dynamic differences (vehicle physics simulators are imperfect),
+and behavioral differences (simulated agents do not capture the full
+complexity of real human drivers).
+
+\citeauthor{tobin2017domain}~\cite{tobin2017domain} introduced
+\emph{domain randomization} as a systematic approach: training across a wide
+distribution of simulated environments---varying lighting conditions, textures,
+sensor noise levels, and physical parameters---encourages the policy to learn
+features that are robust to environmental variation.  If the real world falls
+within the randomization distribution, the policy is robust to sim-to-real
+transfer by construction.  For multi-agent driving, domain randomization
+extends to behavioral diversity of other agents: randomizing the driving
+styles of surrounding vehicles (aggressive, conservative, distracted)
+during training encourages the ego policy to be robust to the behavioral
+diversity encountered on real roads.
+
+\citeauthor{finn2017model}~\cite{finn2017model} (MAML, Model-Agnostic
+Meta-Learning) proposed a complementary strategy: rather than training a
+single robust policy, train a \emph{meta-policy} that can be rapidly adapted
+to new environments with a small number of gradient steps.  MAML optimizes
+for an initial parameter configuration such that a few-step fine-tuning on
+data from a new environment produces a high-performing policy.  Applied to
+autonomous driving, MAML enables rapid adaptation to new cities, new weather
+conditions, or new road layouts with minimal additional data collection---a
+key practical requirement for vehicle fleet operators managing diverse
+deployment environments.
+
+\subsection{Scalability and Generalization Across Agent Counts}
+
+A practical requirement that goes beyond algorithmic correctness is
+\emph{architectural scalability}: the policy network must accept variable
+numbers of agents without architectural modification, since the number of
+vehicles in a driving scene varies dynamically as vehicles enter and leave
+sensor range.
+
+\citeauthor{li2020deep}~\cite{li2020deep} demonstrated that deep graph
+networks with permutation-equivariant message passing naturally handle
+variable-size agent sets: the graph is constructed dynamically from proximity
+constraints, and the policy output for each agent is a function only of its
+own embedding and the aggregated embeddings of its neighbors.  Adding or
+removing a vehicle modifies the graph topology but does not require network
+re-architecture.
+
+\citeauthor{deo2020trajectory}~\cite{deo2020trajectory} applied interaction-aware
+GNNs to vehicle trajectory prediction at variable agent counts, showing that
+models trained on scenes with 2--10 vehicles generalize to scenes with
+15+ vehicles with only minor performance degradation when using mean pooling
+aggregation.  Attention-based aggregation (`papoudakis2021benchmarking`)
+generalizes less gracefully to large agent counts, because the attention
+distribution becomes flat and uninformative as the number of agents grows
+beyond the training distribution.  This motivates architectural choices
+that combine the scalability of pooling with the expressiveness of attention:
+hierarchical aggregation that first clusters agents by proximity and then
+applies attention within and across clusters is a promising direction.
+
+% ==========================================================
+\section{Cross-Cutting Analysis}
+\label{sec:crosscut}
+
+The three-paradigm organization of this survey provides a historical and
+architectural narrative, but several technical themes cut across all three
+paradigms and deserve unified treatment.  This section examines four such
+themes: the problem of credit assignment, the challenge of non-stationarity,
+the design of reward functions for traffic, and a unified comparison of
+the algorithms reviewed.
+
+\subsection{Unified Comparison of MARL Approaches}
+
+Table~\ref{tab:unified_comparison} provides a structured comparison of the
+principal algorithms reviewed in this survey, organized along five dimensions:
+algorithm family, action space, credit assignment mechanism, communication
+requirement, and primary evaluation context.  The table reveals several
+cross-cutting patterns.
+
+First, value decomposition methods (VDN, QMIX, QTRAN) are restricted to
+discrete action spaces; continuous driving control requires actor-critic
+CTDE methods (MADDPG, FACMAC) or Transformer-based policies (MAT).
+Second, communication-free CTDE methods (QMIX, MAPPO) perform surprisingly
+well on tasks where coordination emerges from reward structure rather than
+information exchange, challenging the assumption that explicit communication
+is necessary.  Third, LLM-based methods provide the richest interpretability
+but are currently limited to semantic decision-making rather than continuous
+low-level control, making hybrid neuro-symbolic architectures the most
+practical path to deployment.
+
+\begin{table}[ht]
+\centering
+\caption{Unified comparison of key MARL algorithms across all three paradigms.
+AD = Autonomous Driving; TSC = Traffic Signal Control; HW = Highway.
+\label{tab:unified_comparison}}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabular}{llllll}
+\toprule
+\textbf{Algorithm} & \textbf{Paradigm} & \textbf{Actions} & \textbf{Credit Assign.} &
+\textbf{Comm.} & \textbf{AD Context} \\
+\midrule
+IQL~\cite{tan1993multi}        & I/II & Disc./Cont. & None (shared grad.)   & No  & General \\
+IPPO~\cite{de2020independent}  & II   & Disc./Cont. & Clipped PG baseline   & No  & General \\
+VDN~\cite{sunehag2018value}    & II   & Discrete    & Additive decomp.      & No  & TSC, Coop. \\
+QMIX~\cite{rashid2018qmix}    & II   & Discrete    & Monotone mixing net   & No  & TSC, Coop. \\
+MADDPG~\cite{lowe2017multi}   & II   & Continuous  & Per-agent cent.\ crit.& No  & Multi-vehicle \\
+COMA~\cite{foerster2018counterfactual} & II & Discrete & Counterfactual baseline & No & Coop. \\
+MAPPO~\cite{yu2021surprising}  & II   & Disc./Cont. & Centralized VF        & No  & General \\
+FACMAC~\cite{peng2021facmac}  & II   & Continuous  & Factored cent.\ PG    & No  & Multi-vehicle \\
+CommNet~\cite{sukhbaatar2016learning} & II & Disc.  & Mean-pool comm.       & Yes & Coop. \\
+TarMAC~\cite{das2019tarmac}   & II   & Disc./Cont. & Attn.\ comm.          & Yes & AD, Coop. \\
+MAT~\cite{wen2022multi}        & III  & Disc./Cont. & AR joint action gen.  & No  & General \\
+DiLu~\cite{wen2023dilu}        & III  & Semantic    & LLM reflection        & No  & AD urban \\
+LanguageMPC~\cite{sha2023languagempc} & III & Cont. & LLM cost weights      & No  & AD urban \\
+CoLight~\cite{wei2019colight}  & II   & Discrete    & Graph attn.\ VF       & Yes & TSC \\
+V2VNet~\cite{wang2020v2vnet}  & II   & Continuous  & V2V feature fusion    & Yes & AD HW \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Credit Assignment: From Tabular to Neural}
+
+Credit assignment---determining how much each agent's individual action
+contributed to a shared collective outcome---is the central technical challenge
+of cooperative MARL.  The difficulty is most acute when rewards are sparse
+and delayed: a traffic network may experience a capacity bottleneck 30 seconds
+after the policy decision that caused it, making it difficult for any agent
+to identify which of its past actions was responsible.
+
+The simplest solution is the additive decomposition of VDN~\cite{sunehag2018value},
+which assumes that each agent's contribution to the joint value is independent
+and additive.  While this assumption is violated in interactive settings,
+VDN's credit assignment is efficient and fully differentiable, making it a
+strong baseline.  QMIX~\cite{rashid2018qmix} relaxes independence while
+preserving the IGM property, allowing the mixing network to assign
+state-dependent weights to each agent's utility.  COMA~\cite{foerster2018counterfactual}
+provides the most principled solution for actor-critic methods: the
+counterfactual baseline measures each agent's \emph{marginal} contribution
+by comparing the actual joint value against the expected value if that agent
+had acted according to its mean policy.
+
+\citeauthor{wang2020shapley}~\cite{wang2020shapley} extended credit assignment
+to Shapley values from cooperative game theory: the Shapley value of agent $i$
+is the average marginal contribution of $i$ across all possible agent orderings,
+providing an axiomatically fair attribution.  Shapley-based credit assignment
+produces more accurate individual value estimates than counterfactual baselines
+in tasks with strong non-linear agent interactions, but at an exponential
+computational cost in the number of agents.  The \citeauthor{su2021vdac}~\cite{su2021vdac}
+VDAC framework addresses a closely related challenge: \emph{lazy agents},
+where some agents learn to free-ride on the contributions of others, reducing
+their own policy gradient variance by minimizing action diversity.  VDAC
+detects lazy agents via their low marginal contribution to the joint value
+and applies an additional intrinsic reward that encourages behavioral
+diversity.
+
+\subsection{Non-Stationarity: Diagnosis and Mitigation}
+
+Non-stationarity is the defining difficulty of multi-agent learning:
+each agent's environment is non-stationary because other agents' policies
+change during training.  We organize the literature's responses into four
+levels of increasing sophistication.
+
+\textbf{Level 0 --- Ignore and hope for convergence.}  IQL~\cite{tan1993multi}
+and IPPO~\cite{de2020independent} treat all other agents as part of a
+stationary environment.  This succeeds when the effective non-stationarity
+is small (slow policy changes, large populations where individual changes
+are averaged out) but fails in small-team adversarial settings.
+
+\textbf{Level 1 --- Centralized training.}  CTDE methods~\cite{kraemer2016multi}
+eliminate non-stationarity at training time by conditioning the centralized
+critic on the joint state and joint actions, which are stationary given the
+true game state.  Non-stationarity is resolved by lifting the learning problem
+to the joint policy space.  The cost is scalability: the centralized critic's
+input grows linearly with the number of agents, limiting CTDE to tens of agents.
+
+\textbf{Level 2 --- Opponent modeling.}  Rather than ignoring other agents,
+\citeauthor{he2016opponent}~\cite{he2016opponent} proposed explicitly modeling
+each opponent's policy as an auxiliary learning task.  The ego agent maintains
+a learned model $\hat{\pi}^j$ of each opponent's policy and conditions its
+own value function on these estimates.  When opponents' policies change, the
+models must be updated, introducing a meta-level non-stationarity (models
+chasing moving targets) that is typically managed by experience replay.
+
+\textbf{Level 3 --- Differentiating through opponents.}
+LOLA~\cite{foerster2018lola} addresses non-stationarity proactively: the
+ego agent anticipates how its current policy gradient update will change
+opponents' future policies, and selects updates that steer the joint
+learning trajectory toward cooperative outcomes.  This requires
+differentiating through the opponent's gradient update step, a
+second-order operation that is computationally expensive but produces
+qualitatively different and more cooperative equilibria in dilemma games.
+\citeauthor{zhang2018fully}~\cite{zhang2018fully} studied the convergence
+properties of fully decentralized MARL with networked agents, showing that
+gradient tracking algorithms---which correct for the delayed gradient
+information in distributed systems---recover the convergence guarantees
+of centralized optimization under mild communication graph connectivity
+assumptions.
+
+\subsection{Reward Shaping for Traffic}
+
+The choice of reward function has a profound and often underappreciated
+effect on the behaviors that emerge from MARL training in traffic scenarios.
+A naive global reward (total network throughput) suffers from diffuse credit
+assignment; a purely individual reward (ego vehicle's progress) produces
+selfish behaviors that degrade collective performance.  Effective reward
+shaping balances individual and collective incentives.
+
+In traffic signal control, \citeauthor{wei2019presslight}~\cite{wei2019presslight}
+demonstrated that the max-pressure reward---derived from queueing theory and
+formally linked to network stability---outperforms ad hoc delay penalties
+because it directly encodes the condition for throughput maximization.
+
+In cooperative driving, the key design choice is the degree of reward
+sharing.  \citeauthor{wang2018urban}~\cite{wang2018urban} found that a
+fully shared reward (all vehicles receive the same team reward) produces
+cooperative lane-change behavior but is vulnerable to free-riding.
+A difference reward~\cite{foerster2018counterfactual}---each agent's
+reward is the difference between the team reward with and without that
+agent's contribution---recovers individual credit assignment from a shared
+reward, combining cooperative alignment with individual accountability.
+
+Comfort and safety terms are typically added as penalty shaping:
+\begin{align}
+  r^i_t &= \underbrace{\alpha \cdot v^i_t}_{\text{speed}} -
+           \underbrace{\beta \cdot j^i_t}_{\text{jerk}} -
+           \underbrace{\gamma \cdot \mathbf{1}[\text{collision}^i_t]}_{\text{safety}},
+\end{align}
+where $v^i_t$ is the ego vehicle's speed, $j^i_t$ is the jerk (rate of change
+of acceleration), and $\mathbf{1}[\text{collision}^i_t]$ is a collision
+indicator.  The weights $\alpha, \beta, \gamma$ require careful tuning: an
+overly large collision penalty causes overly conservative policies that stop
+prematurely; an insufficient penalty produces aggressive behaviors that
+maximize speed at the cost of safety.
+\citeauthor{kiran2021deep}~\cite{kiran2021deep} surveyed reward function
+designs across the autonomous driving literature, finding that no single
+formulation dominates across all scenarios and that multi-objective reward
+formulations with lexicographic priority (safety first, then efficiency, then
+comfort) are the most robust to reward hacking.
+
+% ==========================================================
+\section{Open Challenges}
+\label{sec:challenges}
+
+The three paradigms reviewed in this survey represent substantial progress
+toward safe, efficient, and interpretable multi-agent autonomous driving.
+However, several fundamental challenges remain unsolved and constitute the
+open frontier of the field.  Each challenge is stated as a concrete, testable
+unsolved problem rather than a vague direction.
+
+\subsection{Non-Stationarity and Scalability in Large Fleets}
+\label{sec:ch_scale}
+
+\textbf{Problem.}  Existing CTDE methods (QMIX, MAPPO, MADDPG) provide
+convergence guarantees or strong empirical performance for teams of 2--20
+agents.  As agent count exceeds 50---representative of a vehicle platoon or
+a dense urban intersection with cyclists, pedestrians, and vehicles---the
+centralized critic's input grows prohibitively, and independent baselines
+revert to non-stationary instability.  No current method simultaneously
+provides convergence guarantees, sub-quadratic complexity in agent count,
+and communication-free decentralized execution for city-scale fleets.
+
+\textbf{Evidence.}  SMARTS~\cite{zhou2020smarts} experiments with more than
+20 learning agents show sharply degraded convergence rates for CTDE methods.
+\citeauthor{hernandez2019survey}~\cite{hernandez2019survey} identified
+scalability as the primary open challenge in their comprehensive survey of
+deep MARL.
+
+\subsection{Credit Assignment in Sparse Reward Settings}
+\label{sec:ch_credit}
+
+\textbf{Problem.}  In cooperative driving tasks where the reward signal is
+sparse and delayed (e.g., successful convoy completion after a 10-minute
+drive), individual credit assignment becomes intractable.  Counterfactual
+methods~\cite{foerster2018counterfactual} reduce but do not eliminate the
+variance of individual advantage estimates.  Shapley-based methods~\cite{wang2020shapley}
+are exact but require $2^n$ model evaluations for $n$ agents.
+
+\textbf{Evidence.}  \citeauthor{su2021vdac}~\cite{su2021vdac} quantified
+the lazy-agent failure mode: in 6-agent cooperative tasks with global rewards,
+up to 40\% of agents converge to near-zero action diversity within 2 million
+training steps, acting as free-riders and reducing team performance by 15--30\%.
+
+\subsection{Formal Safety Verification}
+\label{sec:ch_safety}
+
+\textbf{Problem.}  No neural MARL policy---regardless of whether it was
+trained with CPO~\cite{achiam2017constrained}, shielding~\cite{alshiekh2018safe},
+or risk-aware objectives~\cite{prashanth2016variance}---currently admits a
+formal safety certificate valid under arbitrary distribution shifts.  Shielding
+provides a hard guarantee only within the scope of the hand-crafted LTL model,
+which cannot enumerate all failure modes of complex multi-agent urban traffic.
+Distributional shift at test time can produce states for which the shield
+provides no applicable correction.
+
+\textbf{Evidence.}  \citeauthor{shalev2016safe}~\cite{shalev2016safe}
+demonstrated that formal safety filters reduce collision rates by 95\% in
+simulation, but physical vehicle experiments revealed 12\% of real-world
+edge cases were not covered by the formal model, leading to unsafe actions
+that the shield did not intercept.
+
+\subsection{Bandwidth-Constrained and Intermittent Communication}
+\label{sec:ch_comm}
+
+\textbf{Problem.}  All communication-enabled MARL methods
+(CommNet~\cite{sukhbaatar2016learning}, TarMAC~\cite{das2019tarmac},
+V2VNet~\cite{wang2020v2vnet}) assume reliable, low-latency channels.
+Real V2X deployments experience packet loss rates of 1--20\% in urban
+environments, variable one-way latency of 5--200\,ms, and intermittent
+connectivity in tunnels and multi-story car parks.  No current method is
+trained jointly with a realistic wireless channel model that captures
+both packet loss and variable latency, making the simulation-to-V2X gap
+a critical unsolved problem.
+
+\subsection{Long-Tail Scenario Coverage and Distributional Robustness}
+\label{sec:ch_longtail}
+
+\textbf{Problem.}  MARL policies overfit to the scenario distribution of
+the training simulator.  CARLA~\cite{dosovitskiy2017carlaopenurbandriving}
+and SUMO~\cite{krajzewicz2012recent} cover common traffic scenarios but
+systematically underrepresent rare-but-critical events: sudden lane intrusions
+by oversized loads, incorrect-way driving, sensor spoofing, and animals on
+the road.  LLM-based methods~\cite{fu2023drive} handle some long-tail scenarios
+via commonsense reasoning but can hallucinate incorrect responses to scenarios
+involving precise spatial reasoning or uncommon road markings.
+
+\textbf{Evidence.}  \citeauthor{kiran2021deep}~\cite{kiran2021deep} reported
+that all reviewed RL-based AD policies showed greater than 50\% performance
+degradation on held-out scenarios from a different simulator, confirming
+severe distributional brittleness.
+
+\subsection{Real-Time Inference for LLM-Based Agents}
+\label{sec:ch_latency}
+
+\textbf{Problem.}  GPT-4-class models require 0.5--2\,s per query on
+current cloud infrastructure.  Autonomous vehicle control loops require
+$<$50\,ms response latency for reactive maneuvers.  While the
+LanguageMPC~\cite{sha2023languagempc} hybrid architecture reduces the real-time
+requirement by delegating low-level control to MPC, the 1\,Hz semantic
+update frequency is insufficient for rapidly evolving scenarios (highway
+emergency braking, unexpected pedestrian intrusion).  Efficient approximations
+compatible with on-board compute (small language models, speculative decoding,
+KV-cache reuse) have not been validated in closed-loop multi-agent driving.
+
+\subsection{Human-Agent Interaction and Mixed Autonomy}
+\label{sec:ch_human}
+
+\textbf{Problem.}  Current MARL methods model human drivers either as
+rational agents with known utility functions~\cite{sadigh2016planning} or
+as fixed stochastic policies drawn from a behavioral model.  Neither
+captures the full variability of real human driving: context-dependent
+irrationality, social signaling (gesture, eye contact, vehicle positioning
+as communication), and cultural variation in right-of-way conventions.
+The consequence is that AV policies optimized against simulated human
+models perform poorly when evaluated against real human drivers in naturalistic
+studies, even in scenarios where the AV policy achieves near-perfect
+performance against the simulated human.
+
+% ==========================================================
+\section{Future Research Directions}
+\label{sec:future}
+
+Each direction proposed in this section is explicitly linked to one or more
+open challenges from Section~\ref{sec:challenges}, providing a direct
+problem-to-solution mapping.
+
+\subsection{Generative World Models for Long-Tail Simulation}
+
+\textit{Challenge addressed: \S\ref{sec:ch_longtail} (long-tail coverage).}
+
+Generative world models---large video prediction networks or diffusion models
+conditioned on text or scenario descriptions---could synthesize realistic,
+physically plausible traffic scenarios from natural-language descriptions of
+rare events (``a truck jackknifes across three lanes on a wet highway at night'').
+By training MARL agents on a curriculum that progressively increases the
+difficulty and rarity of generated scenarios, the agent can encounter the
+full long tail without requiring physical enactment of dangerous events.
+Preliminary evidence from robot manipulation~\cite{tobin2017domain} suggests
+that generative data augmentation substantially expands the effective training
+distribution.  Extending this approach to multi-agent traffic requires
+generative models that produce \emph{joint} trajectory distributions for all
+scene participants, preserving physical interaction dynamics.
+
+\subsection{Scalable MARL via Mean-Field Approximation and Attention}
+
+\textit{Challenge addressed: \S\ref{sec:ch_scale} (scalability).}
+
+Mean-field MARL approximates each agent's interaction with the population
+as an interaction with the \emph{mean field} of the population's joint action
+distribution, reducing the $n$-agent coordination problem to a series of
+2-agent interactions.  Combined with sparse attention---which retains
+full attention for the $k$ nearest neighbors while approximating the contribution
+of distant agents by their mean field embedding---this approach could scale
+cooperative MARL to city-level fleets of hundreds of vehicles without centralized
+critics or quadratic attention complexity.  The key open question is whether
+the mean-field approximation remains accurate in dense traffic where
+individual agent interactions are far from mean-field.
+
+\subsection{Formal-Methods-Augmented MARL}
+
+\textit{Challenge addressed: \S\ref{sec:ch_safety} (safety verification).}
+
+Rather than applying formal safety filters post hoc to trained policies,
+future work should integrate formal specifications into the training loop as
+differentiable constraints.  Signal Temporal Logic (STL) specifications can
+be quantitatively evaluated on continuous state trajectories, providing a
+smooth robustness score that is differentiable with respect to policy
+parameters.  By adding the STL robustness as a policy gradient penalty,
+the agent learns to satisfy the specification implicitly, producing policies
+that are interpretable in terms of the specification and more likely to
+satisfy it under distribution shift than policies corrected by post-hoc
+shields.  Additionally, \emph{shield learning}---jointly optimizing the
+shield and the policy rather than treating the shield as fixed---could
+enable shields that adapt to the driving environment and cover edge cases
+that static LTL models cannot anticipate.
+
+\subsection{Causal Reasoning and Interpretable Credit Assignment}
+
+\textit{Challenge addressed: \S\ref{sec:ch_credit} (credit assignment).}
+
+Causal influence diagrams and structural causal models provide a formal
+language for disentangling each agent's causal contribution to collective
+outcomes.  The \emph{causal influence} of agent $i$ on the team reward is
+the interventional quantity $\mathbb{E}[R \mid do(a^i)] - \mathbb{E}[R]$,
+which differs from the observational correlation because it accounts for
+confounding due to other agents' correlated actions.  Approximate causal
+inference methods (e.g., instrumental variable estimation from communication
+logs) could produce tractable causal credit assignment at scale.  Beyond
+efficiency, causal credit assignment is intrinsically interpretable: a
+natural-language explanation of the form ``vehicle 3's failure to yield
+at the merge caused the downstream congestion'' is both accurate and
+actionable for safety auditing.
+
+\subsection{Efficient LLM Deployment for Real-Time Control}
+
+\textit{Challenge addressed: \S\ref{sec:ch_latency} (LLM latency).}
+
+Two complementary approaches could bring LLM reasoning into the real-time
+feasibility range.  First, \emph{small language models} (SLMs, 1--7B parameters)
+fine-tuned on large-scale driving scenario datasets could retain the
+commonsense reasoning capability necessary for long-tail handling while
+reducing inference time by two orders of magnitude relative to GPT-4.
+Second, the LanguageMPC~\cite{sha2023languagempc} hybrid architecture
+demonstrates that amortizing LLM reasoning over a 1\,Hz behavioral planning
+loop---rather than requiring it at 20\,Hz control frequency---makes LLM
+integration practical without sacrificing real-time guarantees.  Combining
+SLM efficiency with the hybrid architecture, and validating the resulting
+system on the nuPlan closed-loop benchmark~\cite{caesar2021nuplan}, is a
+concrete near-term research direction.
+
+\subsection{Federated Multi-Agent Learning for Privacy-Preserving V2X}
+
+\textit{Challenge addressed: \S\ref{sec:ch_scale} (scalability),
+\S\ref{sec:ch_comm} (communication).}
+
+Federated reinforcement learning allows vehicles to share gradient updates
+or compressed model representations rather than raw sensor data or learned
+embeddings, preserving data privacy while enabling collaborative policy
+improvement across an entire fleet.  The key technical challenge for federated
+MARL is heterogeneity: different vehicles operate in different cities, traffic
+densities, and weather conditions, producing non-i.i.d.\ gradient updates
+that can destabilize federated averaging.  Personalized federated learning---
+maintaining a global backbone combined with lightweight local adapters---
+is a promising response, allowing each vehicle to specialize its policy
+for its deployment environment while sharing general driving knowledge
+across the fleet.
+
+\subsection{Foundation Models as Universal Driving Backbones}
+
+Large pre-trained multi-modal models---jointly trained on video, language,
+and sensor modalities---could serve as universal scene encoders that
+extract rich, transferable representations of driving scenarios without
+scenario-specific reward shaping.  The key hypothesis is that rich
+pre-training on diverse driving data encodes sufficient world knowledge
+that only a lightweight policy head needs to be fine-tuned for each new
+driving task or city.  The success of vision-language models in robotics
+manipulation suggests that this transfer learning paradigm is plausible
+for driving; the main open question is whether models pre-trained on
+standard camera data generalize to the LiDAR and radar modalities critical
+for safe AD perception.
+
+% ==========================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+This survey has traced the evolution of multi-agent learning for autonomous
+driving through three paradigms that span two decades of research.
+
+\textbf{Paradigm I} (approximately 2003--2017) established the single-agent
+foundations: end-to-end imitation learning demonstrated the viability of
+neural policy architectures~\cite{bojarski2016end}; DQN and its successors
+provided a principled offline-to-online optimization pathway~\cite{mnih2015human};
+social pooling architectures began to model interaction structure in trajectory
+prediction~\cite{alahi2016social}.  The unresolved failures of this paradigm---
+distributional shift under covariate shift, non-stationarity from treating
+other vehicles as static obstacles, and the prediction-planning disconnect---
+defined the problem that Paradigm~II set out to solve.
+
+\textbf{Paradigm II} (approximately 2017--2022) delivered a systematic
+MARL toolkit: CTDE algorithms (QMIX, MAPPO, COMA) resolved non-stationarity
+at training time; communication protocols (TarMAC, V2VNet) extended the
+effective sensing horizon; game-theoretic planners (Fridovich, Fisac, PiP)
+coupled prediction and planning; GNN-based trajectory prediction models
+(Trajectron++, VectorNet, LaneGCN) captured relational agent dynamics.
+Large-scale applications demonstrated real-world impact: traffic signal MARL
+reduced urban travel times by 9--15\%~\cite{wei2019colight}; a single AV
+in a ring road suppressed stop-and-go waves and reduced fuel consumption
+by 40\%~\cite{stern2018dissipation}.  Yet three failure modes persisted:
+sample inefficiency and training instability at scale, long-tail generalization
+failure, and an interpretability deficit that precluded regulatory acceptance.
+
+\textbf{Paradigm III} (approximately 2021--present) addressed these failures
+through architectural innovation.  Multi-Agent Transformers~\cite{wen2022multi}
+captured global agent dependencies via attention, delivering state-of-the-art
+cooperative performance without hand-crafted communication graphs.
+LLM-based cognitive agents~\cite{fu2023drive,wen2023dilu,sha2023languagempc}
+introduced commonsense reasoning for long-tail scenarios and produced
+natural-language reasoning traces as a built-in interpretability mechanism.
+Neuro-symbolic hybrids such as LanguageMPC demonstrated that the semantic
+reasoning of LLMs and the formal safety guarantees of MPC are complementary
+rather than competing, pointing toward architectures where each component
+contributes what it does best.
+
+\textbf{The central thesis} of this survey is that the three-paradigm
+evolution is not a sequence of revolutions in which later paradigms render
+earlier ones obsolete.  Rather, each paradigm adds a layer of capability:
+Paradigm~I provides the fundamental perception-to-action building blocks;
+Paradigm~II adds cooperative coordination and joint optimization; Paradigm~III
+adds semantic reasoning, interpretability, and robustness to the long tail.
+The most capable deployed systems will integrate all three layers---a
+modular architecture in which single-agent learned perception feeds MARL
+coordination policies supervised by LLM-generated safety constraints.
+
+\textbf{Open challenges} remain substantial.  Scaling cooperative MARL
+beyond tens of agents to city-scale fleets, providing formal safety
+certificates under distribution shift, operating within realistic V2X
+bandwidth constraints, and delivering LLM reasoning within real-time
+control budgets are all unsolved.  The seven research directions proposed
+in Section~\ref{sec:future} define a concrete technical roadmap for the
+next generation of multi-agent autonomous driving research.
+
+The convergence of scalable MARL algorithms, Transformer-based global
+coordination, and LLM-augmented commonsense reasoning represents the most
+promising path toward autonomous vehicles that are not merely locally
+competent but globally cooperative, interpretably safe, and robustly
+adaptive across the full diversity of human traffic.
 
 % ==========================================================
 \bibliographystyle{unsrtnat}
