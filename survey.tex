@@ -51,59 +51,63 @@ Autonomous driving (AD) is one of the most demanding challenges in modern
 artificial intelligence, requiring real-time perception, intent prediction of
 heterogeneous road users, and safe, socially compliant decision-making in a
 continuously evolving multi-agent environment.
-This survey provides a systematic and comprehensive review of the field,
-organized around a three-layer taxonomy that traces the evolution from
-single-agent foundations to fully cognitive driving systems.
+This survey provides a systematic and critical review of multi-agent learning
+for autonomous driving, assembled from 100 primary references (2003--2024)
+selected through structured keyword searches, citation tracing, and venue
+coverage across NeurIPS, ICML, ICLR, CVPR, ICRA, and IEEE T-ITS.
+We organize the field into a three-layer taxonomy that maps onto three
+successive paradigm shifts, each motivated by well-characterized failure
+modes of its predecessor.
 
-\textbf{Layer 1---Foundational Single-Agent RL.}
-We begin by formalizing the AD decision problem as a Partially Observable
-Markov Decision Process (POMDP)~\cite{hubmann2018automated} and surveying the
-algorithmic building blocks that underpin all subsequent work: end-to-end
-behavior cloning~\cite{bojarski2016end}, augmentation strategies to overcome
-covariate shift~\cite{bansal2018chauffeur}, conditional imitation
-learning~\cite{codevilla2018end}, and policy gradient optimization including
-PPO~\cite{schulman2017proximal} and its deep RL derivatives~\cite{sallab2017deep,kiran2021deep}.
+\textbf{Layer 1 / Paradigm I---Foundational Single-Agent RL ($\approx$2003--2018).}
+We formalize the AD decision problem as a Partially Observable
+Markov Decision Process (POMDP)~\cite{hubmann2018automated} and survey the
+single-agent building blocks: end-to-end behavior
+cloning~\cite{bojarski2016end}, covariate-shift
+mitigation~\cite{bansal2018chauffeur}, conditional imitation
+learning~\cite{codevilla2018end}, and policy gradient optimization
+(PPO~\cite{schulman2017proximal}, deep RL for driving~\cite{sallab2017deep,kiran2021deep}).
+The central failure exposed at the end of this paradigm is the
+\emph{non-stationarity problem}: treating surrounding vehicles as a
+stationary environment breaks down when all agents are learning
+simultaneously, and single-agent policies trained on expert demonstrations
+cannot reason about other agents as strategic co-equal actors.
 
-\textbf{Layer 2---MARL Algorithms and Coordination Protocols.}
-We then extend the formalism to the Partially Observable Stochastic Game (POSG)
-framework~\cite{littman1994markov,bernstein2002complexity}, where the
-non-stationarity and exponential joint-action space of traffic demand specialized
-multi-agent methods.  We survey value-decomposition approaches
-(VDN~\cite{sunehag2018value}, QMIX~\cite{rashid2018qmix}, QTRAN~\cite{son2019qtran}),
-actor-critic CTDE methods (MADDPG~\cite{lowe2017multi},
-COMA~\cite{foerster2018counterfactual}, MAPPO~\cite{yu2021surprising},
-HATRPO~\cite{kuba2021hatrpo}), role-based architectures
-(RODE~\cite{wang2021rode}, ROMA~\cite{wang2020roma}), hierarchical
-MARL~\cite{vezhnevets2017feudal,chu2020multi}, and game-theoretic
-approaches~\cite{shapley1953stochastic,littman1994markov,hu2003nash,foerster2018lola}.
-For communication and coordination, we trace the progression from early
-learned protocols~\cite{foerster2016learning,sukhbaatar2016learning} to
-targeted attention-based messaging~\cite{das2019tarmac,jiang2018learning},
-graph-structured communication~\cite{jiang2019graph,kim2019learning}, and
-V2X cooperative perception~\cite{wang2020v2vnet}.
-On the representation side, we analyze the evolution from grid social
-pooling~\cite{alahi2016social} to vectorized GNNs~\cite{gao2020vectornet,liang2020lanegcn},
-multi-modal prediction~\cite{gupta2018social,salzmann2020trajectron,zhao2020tnt},
-and bidirectional prediction--planning coupling~\cite{song2020pip}.
+\textbf{Layer 2 / Paradigm II---MARL Algorithms and Coordination ($\approx$2017--2022).}
+We extend the formalism to Partially Observable Stochastic Games
+(POSG)~\cite{littman1994markov,bernstein2002complexity} and survey the
+multi-agent toolkit that resolved non-stationarity: value-decomposition
+methods (VDN~\cite{sunehag2018value}, QMIX~\cite{rashid2018qmix},
+QTRAN~\cite{son2019qtran}), actor-critic CTDE methods
+(MADDPG~\cite{lowe2017multi}, COMA~\cite{foerster2018counterfactual},
+MAPPO~\cite{yu2021surprising}), communication protocols from broadcast
+to V2X cooperative perception~\cite{wang2020v2vnet}, and GNN-based
+relational predictors~\cite{gao2020vectornet,salzmann2020trajectron,song2020pip}.
+For each method family we explicitly state the prior limitation it addresses
+and the residual limitation it introduces.  The central failure remaining
+at the end of Paradigm~II is \emph{long-tail brittleness}: policies
+trained on a fixed scenario distribution generalize poorly to rare events,
+and purely data-driven agents offer no explanations for their decisions.
 
-\textbf{Layer 3---Scalable and Transformer/LLM-Augmented Agents.}
-The final layer surveys the nascent paradigm of cognitive driving agents,
-including Multi-Agent Transformer architectures~\cite{wen2022multi},
-Decision Transformers~\cite{chen2021decision}, and LLM-based systems
-that inject common-sense reasoning and few-shot
-generalization~\cite{fu2023drive,wen2023dilu,mao2023gpt,sha2023languagempc}.
-We also survey critical simulation environments (CARLA~\cite{dosovitskiy2017carlaopenurbandriving},
-SMARTS~\cite{zhou2020smarts}), benchmarks
-(NuPlan~\cite{caesar2021nuplan}, Argoverse~\cite{chang2019argoverse},
-Waymo~\cite{ettinger2021large}), and safety frameworks~\cite{shalev2016safe,achiam2017constrained}.
+\textbf{Layer 3 / Paradigm III---Scalable and Cognitive Architectures ($\approx$2021--present).}
+We survey the emerging paradigm that addresses interpretability and long-tail
+coverage by importing architectural innovations from NLP: Multi-Agent
+Transformers~\cite{wen2022multi} for global dependency modeling, and
+LLM-based cognitive agents~\cite{fu2023drive,wen2023dilu,mao2023gpt,sha2023languagempc}
+that supply commonsense reasoning, memory-augmented lifelong adaptation,
+and neuro-symbolic integration with Model Predictive Control.
+Safety frameworks~\cite{shalev2016safe,achiam2017constrained} and
+simulation benchmarks (CARLA~\cite{dosovitskiy2017carlaopenurbandriving},
+nuPlan~\cite{caesar2021nuplan}, Waymo~\cite{ettinger2021large}) are
+examined as cross-cutting infrastructure.
 
-Across all paradigms, we synthesize the key technical contributions,
-identify the precise limitations each work addresses, and draw cross-cutting
-connections.  The survey covers 100 primary references spanning 2003 to 2024,
-and concludes with a structured analysis of open challenges: formal safety
-verification under distributional shift, bandwidth-constrained V2X communication,
-real-time LLM inference, and the need for generative world models to cover
-long-tail corner cases.
+A cross-cutting analysis synthesizes the persistent tensions across all three
+paradigms: expressiveness vs.\ tractability in credit assignment, idealized
+vs.\ realistic communication assumptions in CTDE, and specialization vs.\
+generalization under distribution shift.  The survey closes with a structured
+mapping of seven open challenges---including formal safety verification,
+bandwidth-constrained V2X, real-time LLM inference, and long-tail simulation
+coverage---to seven concrete future research directions.
 \end{abstract}
 
 \noindent\textbf{Keywords:} Autonomous Driving, Multi-Agent Reinforcement Learning,
@@ -2127,7 +2131,21 @@ post-hoc attribution techniques developed for supervised learning (SHAP,
 integrated gradients) transfer poorly to the non-i.i.d., sequential
 decision-making setting.
 
-These three failure modes motivate Paradigm~III (Section~\ref{sec:paradigm3}):
+\textbf{(4) Idealized training assumptions in CTDE.}
+The Centralized Training with Decentralized Execution paradigm resolves
+non-stationarity by assuming that during training a centralized
+critic has access to the \emph{full joint state and all agents' actions}
+simultaneously.  This assumption is violated in realistic deployments
+where vehicles belong to different operators, where training is distributed
+across data centers, or where privacy regulations prevent raw sensor
+sharing.  Federated and privacy-preserving MARL variants that eliminate the
+centralized critic's full-information privilege remain an underexplored gap.
+Furthermore, communication protocols are typically trained assuming reliable,
+noise-free, zero-latency channels---an idealization that diverges significantly
+from real V2X deployments, as detailed in Section~\ref{sec:ch_comm}.
+
+These four failure modes collectively motivate Paradigm~III
+(Section~\ref{sec:paradigm3}):
 Transformer architectures that improve sample efficiency and global dependency
 modeling, and large language models that supply commonsense reasoning for
 long-tail scenarios while generating natural-language explanations of agent
@@ -2925,6 +2943,9 @@ for its deployment environment while sharing general driving knowledge
 across the fleet.
 
 \subsection{Foundation Models as Universal Driving Backbones}
+
+\textit{Challenge addressed: \S\ref{sec:ch_longtail} (long-tail coverage),
+\S\ref{sec:ch_scale} (scalability and generalization).}
 
 Large pre-trained multi-modal models---jointly trained on video, language,
 and sensor modalities---could serve as universal scene encoders that
