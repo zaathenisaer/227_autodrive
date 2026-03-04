@@ -1,0 +1,1147 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\usepackage{times}
+\usepackage{natbib}
+\setcitestyle{authoryear,open={(},close={)}}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{mdframed}
+\usepackage{soul}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue,
+    pdfencoding=auto
+}
+
+\onehalfspacing
+\setlength{\parskip}{0.5em}
+\titlespacing{\section}{0pt}{14pt}{6pt}
+\titlespacing{\subsection}{0pt}{10pt}{4pt}
+\titlespacing{\subsubsection}{0pt}{8pt}{3pt}
+
+% Outline annotation environment
+\newmdenv[
+  leftmargin=0pt,
+  rightmargin=0pt,
+  innerleftmargin=8pt,
+  innerrightmargin=8pt,
+  innertopmargin=4pt,
+  innerbottommargin=4pt,
+  linecolor=gray!40,
+  backgroundcolor=gray!6,
+  linewidth=0.5pt
+]{outline_note}
+
+% =========================================================
+\title{\textbf{Multi-Agent Reinforcement Learning for Autonomous Driving:\\
+Algorithms, Coordination, and Emerging Paradigms}\\[0.5em]
+{\large \textit{Survey Outline}}}
+\author{\large Literature Review}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{outline_note}
+\textbf{Outline Purpose.}
+This document presents the structural skeleton of the full survey.
+Each section heading is accompanied by (1) a brief statement of its \emph{scope},
+(2) the \emph{key papers} to be discussed, and (3) the \emph{planned figures or
+tables} to be included.
+Paper tags follow the format \texttt{[Ref\,N]} matching the 100-paper reference list.
+\end{outline_note}
+
+\tableofcontents
+\newpage
+
+% ==========================================================
+\section*{Abstract \textnormal{\small (planned: $\approx$350 words)}}
+\addcontentsline{toc}{section}{Abstract}
+
+\begin{outline_note}
+\textbf{Content.}
+Provide a crisp problem statement (MARL for AD), explicitly state the survey
+scope (algorithms, communication, simulation, applications), the literature
+selection methodology (systematic search, 100 primary references spanning
+2003--2024), and the three-paradigm organizing framework.  Explicitly enumerate
+the \emph{three taxonomic layers}: (i) foundational single-agent RL; (ii) MARL
+algorithms and coordination protocols; (iii) scalable and
+Transformer/LLM-augmented agents.  Conclude with a sentence on the
+survey's unique contribution versus existing reviews.
+\end{outline_note}
+
+% ==========================================================
+\section{Introduction \textnormal{\small ($\approx$2{,}000 words)}}
+\label{sec:intro}
+
+\subsection{Motivation and Problem Statement}
+
+\begin{outline_note}
+\textbf{Scope.}
+Define autonomous driving as a canonical multi-agent decision problem.
+Describe the core difficulty: ego-vehicle actions and surrounding agents'
+actions are mutually dependent, making single-agent POMDP solutions
+insufficient.  Introduce the survey's central research question:
+\emph{How have MARL algorithms, coordination protocols, and cognitive
+architectures evolved to address the cooperative and competitive challenges
+inherent in multi-agent traffic environments?}
+
+\textbf{Key papers.}
+\begin{itemize}[nosep]
+  \item General MARL survey: \texttt{[Ref\,8]} (Zhang et al.\ 2021),
+        \texttt{[Ref\,7]} (Busoniu et al.\ 2008)
+  \item Autonomous driving RL survey: \texttt{[Ref\,12]} (Sallab et al.\ 2017);
+        Kiran et al.\ 2021 (existing review)
+  \item Driving-specific motivation: \texttt{[Ref\,56]} (Shalev-Shwartz et al.\ 2016)
+\end{itemize}
+
+\textbf{Planned figure.}
+\textbf{Figure 1} -- A horizontal three-paradigm evolution timeline (2003--2024)
+with color-coded swim lanes (blue: single-agent foundations, green: MARL \&
+coordination, orange: Transformer/LLM era).  Each node represents a milestone
+paper; curved arrows between lanes label the specific limitation that drove
+the transition.
+\end{outline_note}
+
+\subsection{Driving Forces Behind Paradigm Shifts}
+
+\begin{outline_note}
+\textbf{Scope.}
+Analyze \emph{why} the field evolved, not merely \emph{what} changed.
+Identify four categories of drivers:
+(1) algorithmic breakthroughs (deep RL, GNN, Transformer),
+(2) hardware and compute scaling,
+(3) dataset and simulation ecosystem maturation (\texttt{[Ref\,72--75,82]}),
+(4) real-world deployment demands (Robotaxi fleets, V2X infrastructure).
+
+\textbf{Planned table.}
+\textbf{Table 1} -- Paradigm shift summary: paradigm name, time period,
+core limitation of predecessor, driving innovation, representative benchmark.
+\end{outline_note}
+
+\subsection{Survey Scope and Literature Selection Methodology}
+
+\begin{outline_note}
+\textbf{Scope.}
+Explicitly state:
+\begin{itemize}[nosep]
+  \item \textbf{Topic coverage}: MARL algorithms (value decomposition, actor-critic,
+        communication), trajectory prediction, multi-vehicle cooperative control,
+        traffic management, sim-to-real transfer, safety, and LLM-based agents.
+  \item \textbf{Time span}: 1993--2024 (foundational theory to present).
+  \item \textbf{Search strategy}: IEEE Xplore, ACM DL, arXiv; keywords
+        \emph{``multi-agent reinforcement learning autonomous driving''},
+        \emph{``cooperative driving deep RL''}, \emph{``vehicle coordination MARL''};
+        backward/forward citation tracing.
+  \item \textbf{Inclusion criteria}: peer-reviewed or highly cited preprints;
+        direct relevance to either MARL methodology or AD application.
+  \item \textbf{Exclusion criteria}: purely perception-only methods, rule-based
+        planners without learning, non-vehicular robotics.
+  \item Total: 100 primary references.
+\end{itemize}
+
+\textbf{Planned figure.}
+\textbf{Figure 2} -- PRISMA-style flowchart showing the literature selection
+process (initial hits, de-duplication, relevance screening, final 100).
+\end{outline_note}
+
+\subsection{Three-Layer Taxonomy}
+
+\begin{outline_note}
+\textbf{Scope.}
+Present the organizing framework of the survey:
+\begin{enumerate}[nosep]
+  \item \textbf{Layer 1 -- Algorithmic Foundations}: game-theoretic formalisms,
+        value-based MARL, policy-gradient MARL, hierarchical and role-based methods.
+  \item \textbf{Layer 2 -- Coordination and Communication}: CTDE vs.\ decentralized
+        execution, communication-learning, V2X cooperative perception.
+  \item \textbf{Layer 3 -- Scalable and Cognitive Architectures}:
+        Transformer-based MARL, LLM-driven cognitive agents, sim-to-real transfer.
+\end{enumerate}
+Emphasize how the three layers map onto the three paradigms in
+Subsection~1.1.
+
+\textbf{Planned figure.}
+\textbf{Figure 3} -- Hierarchical taxonomy tree: root node
+``MARL for Autonomous Driving'', three main branches, leaf nodes labeled with
+representative method names and publication years.
+\end{outline_note}
+
+\subsection{Comparison with Existing Surveys and Contributions}
+
+\begin{outline_note}
+\textbf{Scope.}
+Contrast this survey with:
+(a) general MARL surveys (\texttt{[Ref\,7,8]}) -- lack AD-specific coverage;
+(b) AD-RL surveys (Kiran et al.\ 2021, \texttt{[Ref\,12]}) -- primarily
+single-agent, limited MARL depth;
+(c) cooperative driving reviews -- narrow scope (often only traffic signal or only
+V2X).
+State the four unique contributions: (1) unified three-layer taxonomy,
+(2) systematic comparison of 100 papers, (3) critical limitation analysis per method
+category, (4) structured open-challenges vs.\ future-directions mapping.
+\end{outline_note}
+
+\subsection{Paper Organization}
+
+\begin{outline_note}
+One paragraph describing the section flow with explicit cross-references.
+\end{outline_note}
+
+% ==========================================================
+\section{Background and Formal Foundations \textnormal{\small ($\approx$2{,}500 words)}}
+\label{sec:background}
+
+\subsection{Single-Agent Formalism: MDP and POMDP}
+
+\begin{outline_note}
+\textbf{Scope.}
+Define MDP tuple $\langle \mathcal{S}, \mathcal{A}, P, R, \gamma \rangle$.
+Motivate the POMDP extension for driving (limited sensor range, occluded
+agents).  Define belief-state planning and its computational intractability.
+
+\textbf{Key papers.}
+\texttt{[Ref\,70]} (Hubmann et al.\ 2018 -- POMDP autonomous driving).
+\end{outline_note}
+
+\subsection{Multi-Agent Extension: Stochastic Games and Dec-POMDP}
+
+\begin{outline_note}
+\textbf{Scope.}
+Define Stochastic (Markov) Game \texttt{[Ref\,11]} (Shapley 1953),
+Markov Game \texttt{[Ref\,10]} (Littman 1994).
+Define Dec-POMDP \texttt{[Ref\,9]} (Bernstein et al.\ 2002): joint action space,
+individual observations, shared or individual rewards.
+Discuss NEXP-hardness and practical relaxations.
+Show how cooperative AD maps to Dec-POMDP and mixed-motive AD maps to
+Markov Games.
+
+\textbf{Planned figure.}
+\textbf{Figure 4} -- Side-by-side comparison of POMDP (single agent) and
+Dec-POMDP/POSG (multi-agent): observation model, reward structure,
+execution policy structure.
+\end{outline_note}
+
+\subsection{Deep Reinforcement Learning Primer}
+
+\begin{outline_note}
+\textbf{Scope.}
+Briefly survey the algorithmic building blocks used throughout the paper:
+Q-learning (DQN), policy gradients (REINFORCE), Actor-Critic (A3C/A2C),
+PPO \texttt{[Ref\,Schulman 2017]}, DDPG/SAC for continuous control.
+Emphasize the aspects relevant to multi-agent extensions.
+\end{outline_note}
+
+\subsection{Graph Neural Networks for Relational Reasoning}
+
+\begin{outline_note}
+\textbf{Scope.}
+Motivate GNNs for traffic interaction modeling.
+Cover Graph Attention Networks \texttt{[Ref\,17]} (Velickovic et al.\ 2018),
+their role in encoding spatial agent relationships.
+This subsection sets up the representation methods in Section~4.
+
+\textbf{Key papers.}
+\texttt{[Ref\,17]} (GAT), \texttt{[Ref\,31]} (Graph Conv RL),
+\texttt{[Ref\,16]} (Trajectron++).
+\end{outline_note}
+
+\subsection{Overview of Autonomous Driving Software Stack}
+
+\begin{outline_note}
+\textbf{Scope.}
+Describe modular pipeline (perception $\to$ prediction $\to$ planning $\to$
+control) and end-to-end alternatives.
+Clarify where MARL intervenes in this stack (prediction, planning,
+or full end-to-end).
+
+\textbf{Key papers.}
+\texttt{[Ref\,13]} (Codevilla CILR 2018 -- conditional imitation learning),
+\texttt{[Ref\,12]} (Sallab 2017 -- deep RL for AD).
+\end{outline_note}
+
+% ==========================================================
+\section{Paradigm I: Single-Agent Learning Foundations \textnormal{\small ($\approx$2{,}000 words)}}
+\label{sec:paradigm1}
+
+\begin{outline_note}
+\textbf{Paradigm framing.}
+This paradigm (approx.\ 2016--2018) establishes the core learning machinery
+later extended to multi-agent settings.  Critically discuss its central
+limitation: single-agent learning ignores the non-stationarity arising
+from other learning agents, making it unsuitable as a standalone solution
+for dense traffic.
+\end{outline_note}
+
+\subsection{Imitation Learning and Behavior Cloning}
+
+\subsubsection{End-to-End Learning: DAVE-2 and Successors}
+
+\begin{outline_note}
+\textbf{Key papers.}
+DAVE-2 / NVIDIA end-to-end \texttt{(Bojarski et al.\ 2016 -- in refs folder)},
+\texttt{[Ref\,13]} (Codevilla 2018).
+\textbf{Contributions}: raw pixel to steering command; data efficiency.
+\textbf{Limitations}: covariate shift; brittle recovery; no explicit
+agent modeling.
+\end{outline_note}
+
+\subsubsection{Addressing Covariate Shift: DAgger and Data Augmentation}
+
+\begin{outline_note}
+\textbf{Key papers.}
+ChauffeurNet \texttt{(Bansal et al.\ 2018 -- in refs folder)},
+DAgger (Ross et al.\ 2011).
+\textbf{Contributions}: perturbation-based synthesis; demonstrates that
+30M expert demonstrations are insufficient without augmentation.
+\textbf{Limitations}: still single-agent; synthetic perturbations
+do not capture realistic multi-agent interaction.
+\end{outline_note}
+
+\subsection{Reinforcement Learning for Single-Agent Driving}
+
+\begin{outline_note}
+\textbf{Key papers.}
+\texttt{[Ref\,12]} (Sallab 2017), \texttt{[Ref\,71]} (Kahn risk-sensitive 2017),
+\texttt{[Ref\,60]} (Chen hierarchical ICRA 2019),
+PPO \texttt{(Schulman 2017 -- in refs folder)}.
+\textbf{Coverage}: model-free on-policy (PPO), off-policy (DDPG),
+risk-sensitive RL, hierarchical RL for lane change and intersection.
+\textbf{Limitations}: non-stationarity when other vehicles are also
+learning; scalability to dense scenarios.
+\end{outline_note}
+
+\subsection{Interaction-Aware Trajectory Prediction (Single-Agent Perspective)}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Social LSTM \texttt{[Ref\,14]} (Alahi 2016),
+DESIRE \texttt{[Ref\,15]} (Lee 2017),
+Social GAN \texttt{[Ref\,61]} (Gupta 2018).
+\textbf{Coverage}: grid social pooling, GAN-based multi-modal prediction.
+\textbf{Limitations}: prediction is decoupled from planning; ignores
+the ego-agent's own reactive behavior in predictions.
+
+\textbf{Planned figure.}
+\textbf{Figure 5} -- Social LSTM grid pooling versus GAN-based stochastic
+trajectory sampling: architectural comparison diagram.
+\end{outline_note}
+
+\subsection{Critical Analysis: Limitations Driving Paradigm~II}
+
+\begin{outline_note}
+Summarize three concrete failure modes:
+(1) covariate shift in IL, (2) non-stationarity in RL, (3) prediction-planning
+disconnect.  Each limitation maps directly to a solution introduced in
+Paradigm II, forming the causal bridge between sections.
+\end{outline_note}
+
+% ==========================================================
+\section{Paradigm II: Multi-Agent Reinforcement Learning -- Algorithms and Coordination \textnormal{\small ($\approx$6{,}000 words)}}
+\label{sec:paradigm2}
+
+\begin{outline_note}
+\textbf{Paradigm framing.}
+This is the core of the survey (approx.\ 2017--2022).
+It is organized into four thematic subsections: (A) MARL algorithms,
+(B) communication and coordination, (C) interaction-aware representation
+and prediction-planning integration, and (D) autonomous driving applications.
+\end{outline_note}
+
+% ---- 4.A ----
+\subsection{Multi-Agent RL Algorithms}
+\label{sec:marl_alg}
+
+\subsubsection{Independent Learning and Its Limitations}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Independent Q-Learning (IQL) \texttt{[Ref\,5]} (Tan 1993),
+Independent PPO (IPPO) \texttt{[Ref\,42]}.
+\textbf{Contributions}: simplicity, parameter sharing, scalable.
+\textbf{Limitations}: environment non-stationarity from each agent's
+perspective; convergence guarantees lost.
+\end{outline_note}
+
+\subsubsection{CTDE: Centralized Training, Decentralized Execution}
+
+\begin{outline_note}
+\textbf{Framing.}
+Introduce the CTDE paradigm \texttt{[Ref\,6]} (Kraemer \& Banerjee 2016) as
+the dominant design philosophy: a centralized critic with access to global
+state at training time; each actor uses only local observations at
+execution.
+
+\textbf{Value Decomposition Methods.}
+\begin{itemize}[nosep]
+  \item VDN \texttt{[Ref\,3]} (Sunehag 2018): additive decomposition;
+        credit assignment via gradient.
+        \textbf{Limitation}: linear decomposition too restrictive.
+  \item QMIX \texttt{[Ref\,2]} (Rashid 2018): monotonic mixing network;
+        IGM condition.  \textbf{Limitation}: monotonic constraint
+        cannot represent all joint Q-functions.
+  \item QTRAN \texttt{[Ref\,19]} (Son 2019): relaxes monotonicity.
+        \textbf{Limitation}: optimization instability.
+  \item MAVEN \texttt{[Ref\,21]} (Mahajan 2019): latent variable
+        exploration.
+\end{itemize}
+
+\textbf{Actor-Critic CTDE Methods.}
+\begin{itemize}[nosep]
+  \item MADDPG \texttt{[Ref\,1,24]} (Lowe 2017): mixed cooperative-competitive;
+        centralized critic per agent.
+  \item COMA \texttt{[Ref\,4,36]} (Foerster 2018): counterfactual baseline
+        for credit assignment.
+  \item MAPPO \texttt{[Ref\,18]} (Yu 2021): PPO in MARL; surprisingly strong
+        baseline.  \textbf{Limitation}: on-policy; sample inefficiency.
+  \item HATRPO \texttt{[Ref\,23]} (Kuba 2021): trust-region extension.
+  \item FACMAC \texttt{[Ref\,40]} (Peng 2021): continuous action
+        decomposition.
+\end{itemize}
+
+\textbf{Planned table.}
+\textbf{Table 2} -- CTDE algorithm comparison: algorithm, decomposition type,
+action space (discrete/continuous), credit assignment mechanism,
+key limitation, primary benchmark.
+\end{outline_note}
+
+\subsubsection{Role-Based and Structured MARL}
+
+\begin{outline_note}
+\textbf{Key papers.}
+RODE \texttt{[Ref\,20]} (Wang 2021): action-space role decomposition.
+ROMA \texttt{[Ref\,22]} (Wang 2020): role regularization via mutual information.
+\textbf{Relevance to AD}: heterogeneous agents (trucks, motorcycles, pedestrians)
+naturally map to distinct roles.
+\textbf{Limitations}: role discovery is task-sensitive; hard to generalize
+across traffic scenarios.
+\end{outline_note}
+
+\subsubsection{Hierarchical MARL}
+
+\begin{outline_note}
+\textbf{Key papers.}
+FeUdal Networks \texttt{[Ref\,47]} (Vezhnevets 2017),
+Hierarchical MARL for traffic \texttt{[Ref\,48]} (Chu 2020),
+hierarchical RL for urban driving \texttt{[Ref\,60]}.
+\textbf{Framing}: high-level goal selection decoupled from low-level
+primitive execution enables temporal abstraction.
+\textbf{Limitations}: reward decomposition across levels is non-trivial;
+sub-goal definitions require domain knowledge.
+\end{outline_note}
+
+\subsubsection{Game-Theoretic Approaches}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Stochastic games \texttt{[Ref\,11]},
+Markov games \texttt{[Ref\,10]},
+Nash Q-learning \texttt{[Ref\,49]} (Hu \& Wellman 2003),
+LOLA \texttt{[Ref\,50]} (Foerster 2018),
+PSRO \texttt{[Ref\,45]} (Lanctot 2017).
+\textbf{Relevance to AD}: mixed-motive settings (e.g., merging, yielding)
+require Nash equilibrium reasoning.
+\textbf{Limitations}: Nash computation is intractable at scale; LOLA
+requires differentiating through opponents' update steps.
+\end{outline_note}
+
+\subsubsection{Population-Based Training and Self-Play}
+
+\begin{outline_note}
+\textbf{Key papers.}
+AlphaStar \texttt{[Ref\,46]}, PSRO \texttt{[Ref\,45]}.
+\textbf{Relevance to AD}: generating diverse, robust opponents
+for stress-testing driving agents.
+\textbf{Limitations}: high compute cost; opponent distribution may
+not match real road users.
+\end{outline_note}
+
+% ---- 4.B ----
+\subsection{Communication and Coordination Protocols}
+\label{sec:comm}
+
+\subsubsection{Learned Communication: Early Approaches}
+
+\begin{outline_note}
+\textbf{Key papers.}
+DIAL/RIAL \texttt{[Ref\,26]} (Foerster 2016),
+CommNet \texttt{[Ref\,27]} (Sukhbaatar 2016).
+\textbf{Contributions}: first demonstration that communication can be
+jointly learned with policy.
+\textbf{Limitations}: no bandwidth constraint; broadcast communication
+does not scale.
+\end{outline_note}
+
+\subsubsection{Targeted and Selective Communication}
+
+\begin{outline_note}
+\textbf{Key papers.}
+TarMAC \texttt{[Ref\,28]} (Das 2019): attention-based targeted messages.
+ATOC \texttt{[Ref\,29]} (Jiang 2018): learned gating of communication.
+VBC \texttt{[Ref\,34]} (Wang 2021): value-based selection.
+IC3Net \texttt{[Ref\,35]} (Singh 2019): independently controlled gating.
+\textbf{Limitations}: selective communication introduces non-differentiability;
+message encoding/decoding can become an information bottleneck.
+\end{outline_note}
+
+\subsubsection{Graph-Based Communication}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Graph Conv RL \texttt{[Ref\,31]} (Jiang 2019): GCN over agent interaction graph.
+Structured communication \texttt{[Ref\,30]} (Kim 2019): learned discrete graph.
+\textbf{Contributions}: scalable, topology-aware message passing.
+\textbf{Limitations}: dynamic graph topology changes as agents enter/leave
+communication range.
+
+\textbf{Planned figure.}
+\textbf{Figure 6} -- Communication topology evolution: broadcast
+$\to$ attention-gated $\to$ graph-structured.  Diagram showing
+message flow for a 5-vehicle scenario under each paradigm.
+\end{outline_note}
+
+\subsubsection{Bandwidth-Constrained Communication}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Message-Dropout \texttt{[Ref\,32]} (Kim 2019),
+limited-bandwidth MARL \texttt{[Ref\,33]} (Wang 2020).
+\textbf{Relevance to AD}: V2X channel capacity is finite; packet loss
+is realistic in urban canyons.
+\textbf{Limitations}: current methods simulate packet loss but do not
+model realistic wireless channel models.
+\end{outline_note}
+
+\subsubsection{V2X Cooperative Perception}
+
+\begin{outline_note}
+\textbf{Key papers.}
+V2VNet \texttt{(Wang et al.\ 2020 -- in refs folder)}: intermediate feature
+fusion via compressed spatial maps.
+\textbf{Contributions}: V2V feature sharing improves object detection
+at long range.
+\textbf{Limitations}: feature representations must be aligned across
+heterogeneous sensor suites; requires time-synchronized maps.
+
+\textbf{Planned figure.}
+\textbf{Figure 7} -- V2X fusion strategies: early fusion (raw sensor data),
+intermediate fusion (feature maps), late fusion (predictions).
+Comparison of detection range and communication bandwidth for each.
+\end{outline_note}
+
+% ---- 4.C ----
+\subsection{Interaction-Aware Representation and Prediction-Planning Integration}
+\label{sec:representation}
+
+\subsubsection{GNN-Based Trajectory Prediction}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Trajectron++ \texttt{[Ref\,16]} (Salzmann 2020): heterogeneous agent types,
+temporal GNN.
+VectorNet \texttt{[Ref\,62]} (Gao 2020): vectorized HD-map + agent trajectory
+encoding.
+LaneGCN \texttt{[Ref\,63]} (Liang 2020): lane-graph convolution.
+TNT \texttt{[Ref\,65]} (Zhao 2020): target-conditioned trajectory sampling.
+MultiPath \texttt{[Ref\,64]} (Chai 2019): anchor-based multi-modal prediction.
+\textbf{Limitations}: these models predict each agent's trajectory
+\emph{independently} conditioned on others' past motion, ignoring
+the coupled nature of future decisions.
+
+\textbf{Planned table.}
+\textbf{Table 3} -- Trajectory prediction methods: input representation,
+interaction model, multi-modality mechanism, benchmark, ADE/FDE.
+\end{outline_note}
+
+\subsubsection{Prediction-Planning Bidirectional Coupling}
+
+\begin{outline_note}
+\textbf{Key papers.}
+PiP \texttt{(Song et al.\ 2020 -- in refs folder)}: planning-informed
+prediction feeds candidate ego plans into the prediction network.
+\textbf{Contribution}: breaks the one-directional prediction$\to$planning
+pipeline; ego plan affects surrounding agent trajectory estimates.
+\textbf{Limitation}: closed-loop interaction between planning and prediction
+is approximated rather than exact.
+\end{outline_note}
+
+\subsubsection{Game-Theoretic Motion Planning}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Game-theoretic motion planning \texttt{[Ref\,94]} (Fridovich-Keil 2020).
+Game-theoretic autonomous driving \texttt{[Ref\,58]} (Fisac 2019).
+Interactive decision making via deep RL \texttt{[Ref\,59]} (Sadigh 2016).
+Intent-aware planning \texttt{[Ref\,69]} (Schwarting 2021).
+\textbf{Coverage}: level-$k$ reasoning, potential-game formulations,
+responsibility-sensitive safety (RSS).
+\textbf{Limitations}: game-theoretic solvers require known utility functions
+and agent rationality assumptions that real humans violate.
+
+\textbf{Planned figure.}
+\textbf{Figure 8} -- Level-$k$ game-theoretic reasoning at a merge:
+level-0 agent acts selfishly; level-1 anticipates level-0; level-2
+anticipates level-1.
+\end{outline_note}
+
+% ---- 4.D ----
+\subsection{Autonomous Driving Applications of MARL}
+\label{sec:ad_apps}
+
+\subsubsection{Traffic Signal Control}
+
+\begin{outline_note}
+\textbf{Key papers.}
+CoLight \texttt{[Ref\,51]} (Wei 2019): graph attention for network-level
+signal coordination.
+PressLight \texttt{[Ref\,52]} (Wei 2019): max-pressure theory + RL.
+FRAP \texttt{[Ref\,53]} (Zheng 2019): factorized phase representation.
+Large-scale hierarchical MARL \texttt{[Ref\,54]} (Chu 2020).
+\textbf{Comparison}: rule-based pressure control vs.\ learned coordination;
+scalability vs.\ optimality trade-off.
+\textbf{Limitations}: ignores vehicle heterogeneity (emergency vehicles,
+public transit); reward design with network externalities is unsolved.
+
+\textbf{Planned table.}
+\textbf{Table 4} -- Traffic signal MARL methods: number of intersections,
+state/action space, coordination mechanism, improvement over fixed-time
+baseline.
+\end{outline_note}
+
+\subsubsection{Multi-Vehicle Cooperative Driving}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Cooperative lane change \texttt{[Ref\,55]} (Wang 2018 T-ITS).
+Safe multi-agent RL \texttt{[Ref\,56]} (Shalev-Shwartz 2016).
+Learning interactive driving policies \texttt{[Ref\,57]} (Schwarting 2019).
+\textbf{Coverage}: highway lane change, on-ramp merging, cooperative
+intersection crossing.
+\textbf{Limitations}: methods assume perfect V2V communication; real-world
+latency and packet loss degrade coordination performance.
+\end{outline_note}
+
+\subsubsection{Mixed-Autonomy Traffic}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Flow \texttt{[Ref\,66]} (Wu 2017): RL for mixed human-AV traffic control.
+Stabilizing traffic with AVs \texttt{[Ref\,67]} (Wu 2018 Nature).
+Autonomous driving in mixed-autonomy systems \texttt{[Ref\,100]}
+(Talebpour 2016).
+\textbf{Contribution}: even a small fraction of AVs can suppress
+stop-and-go waves when coordinated.
+\textbf{Limitations}: assumes AVs can communicate; human drivers are
+modeled by simple car-following models that underestimate behavioral
+diversity.
+\end{outline_note}
+
+\subsubsection{Highway and Urban Driving with MARL}
+
+\begin{outline_note}
+\textbf{Key papers.}
+MARL for highway driving \texttt{[Ref\,68]} (Isele 2018).
+POMDP-based autonomous driving \texttt{[Ref\,70]} (Hubmann 2018).
+Multi-agent connected AV \texttt{(Palanisamy 2020 -- in refs folder)}.
+\textbf{Coverage}: lane selection, speed negotiation, unsignalized
+intersection management.
+\textbf{Limitations}: open-world generalization; long-tail scenarios
+(unexpected pedestrian crossings) remain unsolved.
+\end{outline_note}
+
+% ---- 4.E ----
+\subsection{Simulation Platforms and Benchmarks}
+\label{sec:sim}
+
+\begin{outline_note}
+\textbf{Key papers.}
+CARLA \texttt{[Ref\,72]} (Dosovitskiy 2017 -- also in refs folder).
+SUMO \texttt{[Ref\,73]} (Krajzewicz 2012).
+SMARTS \texttt{[Ref\,82]} / \texttt{(Zhou 2020 -- in refs folder)}.
+Waymo Open Motion Dataset \texttt{[Ref\,74]} (Ettinger 2021).
+nuScenes \texttt{[Ref\,75]} / NuPlan \texttt{(Caesar 2022 -- in refs folder)}.
+Argoverse \texttt{[Ref\,97]} (Chang 2019).
+SMAC \texttt{[Ref\,82]} (Samvelyan 2019).
+
+\textbf{Planned table.}
+\textbf{Table 5} -- Simulation and benchmark ecosystem:
+platform name, year, sensor modalities, agent types, MARL support,
+primary task, open-source availability.
+\end{outline_note}
+
+\subsection{Critical Analysis: Limitations Driving Paradigm~III}
+
+\begin{outline_note}
+Identify three concrete failure modes of Paradigm II:
+(1) sample inefficiency and training instability at scale (non-stationarity
+persists even under CTDE);
+(2) long-tail generalization failure (MARL agents overfit to training
+scenarios, failing in rare but safety-critical edge cases);
+(3) interpretability deficit (complex MARL policies are opaque;
+regulatory acceptance requires explainability).
+\end{outline_note}
+
+% ==========================================================
+\section{Paradigm III: Transformer-Based and LLM-Augmented MARL \textnormal{\small ($\approx$3{,}000 words)}}
+\label{sec:paradigm3}
+
+\begin{outline_note}
+\textbf{Paradigm framing.}
+This paradigm (approx.\ 2021--present) addresses interpretability and
+long-tail generalization by importing architectural innovations from NLP
+and by exploiting the commonsense knowledge encoded in large language models.
+\end{outline_note}
+
+\subsection{Transformer Architectures for MARL}
+
+\subsubsection{Sequential Decision Making as Sequence Modeling}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Decision Transformer \texttt{[Ref\,78]} (Chen 2021): offline RL as
+autoregressive sequence prediction.
+Trajectory Transformer \texttt{[Ref\,79]} (Janner 2021): full
+trajectory-level distribution modeling.
+GTrXL \texttt{[Ref\,77]} (Parisotto 2020): stabilized Transformer for RL.
+\textbf{Contributions}: eliminates explicit reward function design;
+enables offline learning from diverse driving logs.
+\textbf{Limitations}: purely offline; requires return-labeled datasets;
+sub-optimal for online fine-tuning.
+\end{outline_note}
+
+\subsubsection{Multi-Agent Transformer (MAT)}
+
+\begin{outline_note}
+\textbf{Key papers.}
+MAT \texttt{[Ref\,76]} (Wen 2022): encoder-decoder Transformer modeling
+sequential joint-action generation; global dependency via attention.
+R-MAT \texttt{[Ref\,80]} (Papoudakis 2021): scalable attention structure.
+\textbf{Contributions}: captures global agent dependencies without
+hand-crafted communication graphs.
+\textbf{Limitations}: quadratic attention complexity with agent count;
+not yet demonstrated in high-fidelity AD simulators at scale.
+
+\textbf{Planned figure.}
+\textbf{Figure 9} -- MAT encoder-decoder architecture: agent
+observations encoded jointly; decoder autoregressively generates
+actions conditioned on previous agents' actions.
+\end{outline_note}
+
+\subsubsection{GNN + Transformer Hybrid Models}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Deep Graph Networks for MARL \texttt{[Ref\,81]} (Li 2020).
+\textbf{Framing}: GNNs model local topology; Transformers model
+global context; hybrids combine both.
+\textbf{Limitations}: increased model complexity; requires careful
+positional encoding for non-Euclidean graph structure.
+\end{outline_note}
+
+\subsection{Large Language Models as Cognitive Driving Agents}
+
+\subsubsection{LLM as Commonsense Reasoner}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Drive Like a Human \texttt{(Fu et al.\ 2023 -- in refs folder)}:
+GPT-4 zero-shot chain-of-thought reasoning for novel scenarios.
+Voyager \texttt{[Ref\,88]} (Wang 2023): skill-accumulation agent.
+\textbf{Contributions}: LLM knowledge covers long-tail situations absent
+from training datasets; reasoning trace provides interpretability.
+\textbf{Limitations}: hallucination risk; latency ($>$100\,ms per query)
+incompatible with real-time control loops ($<$50\,ms).
+\end{outline_note}
+
+\subsubsection{Memory-Augmented Lifelong Adaptation}
+
+\begin{outline_note}
+\textbf{Key papers.}
+DiLu \texttt{(Wen et al.\ 2024 -- in refs folder)}: memory module
+stores past driving episodes; reflection mechanism updates policy.
+\textbf{Contributions}: bridges the gap between static pre-training
+and continuous deployment; reduces catastrophic forgetting.
+\textbf{Limitations}: memory retrieval quality degrades with corpus size;
+episode similarity metrics require calibration.
+\end{outline_note}
+
+\subsubsection{LLM as Motion Planner}
+
+\begin{outline_note}
+\textbf{Key papers.}
+GPT-Driver \texttt{(Mao et al.\ 2023 -- in refs folder)}:
+waypoint generation framed as language completion.
+LLM-Planner \texttt{[Ref\,90]} (Song 2023): high-level route planning.
+\textbf{Contributions}: leverages LLM structured output parsing for
+interpretable intermediate waypoints.
+\textbf{Limitations}: language-to-coordinate mapping is imprecise;
+no safety guarantee on generated trajectories.
+\end{outline_note}
+
+\subsubsection{Neuro-Symbolic Hybrid: LLM + Model Predictive Control}
+
+\begin{outline_note}
+\textbf{Key papers.}
+LanguageMPC \texttt{(Sha et al.\ 2025 -- in refs folder)}: LLM generates
+behavioral parameters consumed by a downstream MPC controller.
+\textbf{Contributions}: separates semantic reasoning (LLM) from
+real-time trajectory optimization (MPC); provides formal safety guarantees
+at the execution level.
+\textbf{Limitations}: MPC formulation is hand-crafted per scenario;
+the LLM $\to$ MPC interface requires extensive prompt engineering.
+
+\textbf{Planned figure.}
+\textbf{Figure 10} -- Neuro-symbolic architecture: LLM reasoning layer
+generates cost weights; MPC execution layer solves constrained optimization
+with hard safety constraints.
+\end{outline_note}
+
+\subsection{Safety and Robustness in MARL}
+\label{sec:safety}
+
+\begin{outline_note}
+\textbf{Key papers.}
+CPO \texttt{[Ref\,83]} (Achiam 2017): constrained policy optimization.
+Safe RL via shielding \texttt{[Ref\,84]} (Alshiekh 2018): formal safety filter.
+Risk-aware MARL \texttt{[Ref\,85]} (Prashanth 2016): CVaR optimization.
+\textbf{Coverage}: constraint formulation (CMDP), shielding with
+temporal logic specifications, risk-sensitive objectives.
+\textbf{Limitations}: formal verification does not scale to neural policies;
+CVaR optimization is conservative; online shielding adds latency.
+
+\textbf{Planned table.}
+\textbf{Table 6} -- Safety mechanisms: approach, formal guarantee,
+computational overhead, coverage of stochastic failures.
+\end{outline_note}
+
+\subsection{Sim-to-Real Transfer and Domain Generalization}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Domain randomization \texttt{[Ref\,86]} (Tobin 2017).
+MAML meta-RL \texttt{[Ref\,87]} (Finn 2017).
+\textbf{Coverage}: randomization of lighting, weather, traffic density;
+meta-learning for rapid adaptation to new environments.
+\textbf{Limitations}: the sim-to-real gap for complex social interactions
+is larger than for perception; behavioral fidelity of simulated agents
+remains poor.
+\end{outline_note}
+
+\subsection{Scalability and Generalization Across Agent Counts}
+
+\begin{outline_note}
+\textbf{Key papers.}
+Deep Graph Networks \texttt{[Ref\,81]},
+R-MAT \texttt{[Ref\,80]},
+Interaction-aware prediction via GNN \texttt{[Ref\,96]} (Deo 2020).
+\textbf{Coverage}: architectures that gracefully handle variable numbers
+of agents (e.g., sparse highway vs.\ dense urban intersection).
+\textbf{Limitations}: training on variable-agent environments requires
+careful curriculum design.
+\end{outline_note}
+
+% ==========================================================
+\section{Cross-Cutting Analysis \textnormal{\small ($\approx$2{,}000 words)}}
+\label{sec:crosscut}
+
+\subsection{Unified Comparison of MARL Approaches}
+
+\begin{outline_note}
+\textbf{Planned table.}
+\textbf{Table 7} -- Master comparison table covering all three paradigms:
+method, year, paradigm layer, algorithm class, AD scenario, benchmark,
+key metric, communication required, safety mechanism, primary limitation.
+This table spans all 100 references.
+\end{outline_note}
+
+\subsection{Credit Assignment: From Tabular to Neural}
+
+\begin{outline_note}
+\textbf{Key papers.}
+VDN, QMIX, COMA \texttt{[Ref\,2,3,4]},
+Counterfactual credit assignment \texttt{[Ref\,36]},
+Shapley value MARL \texttt{[Ref\,91]} (Wang 2020),
+Lazy agents problem \texttt{[Ref\,37]}.
+\textbf{Planned figure.}
+\textbf{Figure 11} -- Credit assignment taxonomy: global reward
+$\to$ difference rewards $\to$ counterfactual baselines
+$\to$ Shapley values.  Complexity vs.\ accuracy trade-off curve.
+\end{outline_note}
+
+\subsection{Non-Stationarity: Diagnosis and Mitigation}
+
+\begin{outline_note}
+Systematic treatment of non-stationarity under:
+(a) independent learning (convergence failure),
+(b) CTDE (mitigated but not eliminated by centralized critic),
+(c) opponent modeling \texttt{[Ref\,93]} (He 2016),
+(d) learning with imagined opponent \texttt{[Ref\,50]}.
+\end{outline_note}
+
+\subsection{Reward Shaping for Traffic}
+
+\begin{outline_note}
+Survey reward functions used across AD applications:
+speed, comfort, collision penalty, throughput, fairness (social welfare).
+Discuss reward hacking examples and mitigation strategies.
+\end{outline_note}
+
+% ==========================================================
+\section{Open Challenges \textnormal{\small ($\approx$1{,}500 words)}}
+\label{sec:challenges}
+
+\begin{outline_note}
+\textbf{Note on structure.}
+Each challenge is stated as a \emph{current unsolved problem};
+the proposed research directions are deferred to Section~8.
+This two-section structure directly addresses the reviewer feedback that
+challenges and directions were previously conflated.
+\end{outline_note}
+
+\subsection{Non-Stationarity and Scalability in Large Fleets}
+
+\begin{outline_note}
+As the number of agents increases beyond toy scenarios (e.g.,
+$>$50 vehicles in a city-scale simulation), CTDE's centralized critic
+becomes computationally infeasible.  IQL resorts to
+non-stationary, unstable training.  No current method provides
+both scalability and convergence guarantees simultaneously.
+
+\textbf{Evidence}: \texttt{[Ref\,7,8,99]}, SMARTS experiments.
+\end{outline_note}
+
+\subsection{Credit Assignment in Sparse Reward Settings}
+
+\begin{outline_note}
+In cooperative driving tasks (e.g., reducing network congestion),
+individual contributions to the team reward are difficult to isolate.
+Counterfactual methods (\texttt{[Ref\,4]}) mitigate but do not eliminate
+the credit assignment problem.  Shapley-based methods (\texttt{[Ref\,91]})
+are exact but exponentially expensive.
+\end{outline_note}
+
+\subsection{Formal Safety Verification}
+
+\begin{outline_note}
+Neural MARL policies lack formal safety certificates.
+Shielding approaches (\texttt{[Ref\,84]}) rely on hand-crafted
+formal models that cannot capture the full state space of real traffic.
+Distributional shift at test time can violate safety constraints
+that held during training (\texttt{[Ref\,83,85]}).
+\end{outline_note}
+
+\subsection{Bandwidth-Constrained and Intermittent Communication}
+
+\begin{outline_note}
+Current communication-learning MARL assumes reliable, low-latency
+channels (\texttt{[Ref\,26--35]}).  Real V2X deployments experience
+packet loss, variable latency (5--200\,ms), and partial connectivity.
+No current method is trained under a realistic wireless channel model.
+\end{outline_note}
+
+\subsection{Long-Tail Scenario Coverage and Distributional Robustness}
+
+\begin{outline_note}
+MARL policies overfit to the scenario distribution of the training
+simulator.  CARLA/SUMO (\texttt{[Ref\,72,73]}) cover common scenarios
+but underrepresent rare-but-critical events (debris on road, aggressive
+pedestrian behavior, sensor spoofing).
+\end{outline_note}
+
+\subsection{Real-Time Inference for LLM-Based Agents}
+
+\begin{outline_note}
+GPT-4-class models require $\sim$500\,ms--2\,s per query
+(\texttt{[Ref\,88,89,90]}).  Control systems require $<$50\,ms
+response latency.  Efficient approximations (speculative decoding,
+caching) have not been validated in closed-loop driving.
+\end{outline_note}
+
+\subsection{Human-Agent Interaction and Mixed Autonomy Behavior}
+
+\begin{outline_note}
+Human drivers do not follow rational game-theoretic models
+(\texttt{[Ref\,57,59,100]}).  Current MARL methods model humans as
+either fully rational or as fixed stochastic policies; neither
+captures the full behavioral distribution observed on real roads.
+\end{outline_note}
+
+% ==========================================================
+\section{Future Research Directions \textnormal{\small ($\approx$1{,}500 words)}}
+\label{sec:future}
+
+\begin{outline_note}
+\textbf{Note on structure.}
+Each direction is a concrete technical path mapped to one or more
+open challenges from Section~7.  This pairing makes the link between
+problem and proposed solution explicit.
+\end{outline_note}
+
+\subsection{Generative World Models for Long-Tail Simulation}
+
+\begin{outline_note}
+\textbf{Challenge addressed}: \S7.5 (long-tail scenarios).
+Generative models (diffusion models, video prediction networks)
+conditioned on rare-event descriptions could synthesize realistic
+adversarial traffic scenarios for curriculum training.
+\end{outline_note}
+
+\subsection{Scalable MARL via Mean-Field Approximation and Attention}
+
+\begin{outline_note}
+\textbf{Challenge addressed}: \S7.1 (scalability).
+Mean-field MARL approximates the joint policy as a product of
+individual policies interacting via a mean-field term.  Combined
+with attention mechanisms (\texttt{[Ref\,76,80]}), this could scale
+to city-level fleets without centralized critics.
+\end{outline_note}
+
+\subsection{Formal-Methods-Augmented MARL}
+
+\begin{outline_note}
+\textbf{Challenge addressed}: \S7.3 (safety verification).
+Integrating STL/LTL specifications as differentiable constraints
+within the RL training loop could provide formal guarantees while
+retaining learned flexibility.  Shield learning (not just shield
+inference) is a promising direction.
+\end{outline_note}
+
+\subsection{Causal Reasoning and Interpretable Credit Assignment}
+
+\begin{outline_note}
+\textbf{Challenge addressed}: \S7.2 (credit assignment).
+Causal influence diagrams could disentangle each agent's causal
+contribution to collective outcomes, enabling interpretable
+and more efficient credit assignment beyond counterfactual baselines.
+\end{outline_note}
+
+\subsection{Efficient LLM Deployment for Real-Time Control}
+
+\begin{outline_note}
+\textbf{Challenge addressed}: \S7.6 (LLM latency).
+Small language models (SLMs) fine-tuned on driving data,
+combined with speculative decoding, could bring LLM reasoning
+latency into the feasible real-time range.
+The LanguageMPC hybrid architecture (\texttt{[Ref in refs folder]}) is a
+promising template: LLM provides offline-amortized policy parameters;
+MPC provides real-time trajectory guarantees.
+\end{outline_note}
+
+\subsection{Federated Multi-Agent Learning for Privacy-Preserving V2X}
+
+\begin{outline_note}
+\textbf{Challenge addressed}: \S7.4 (communication), \S7.1 (scalability).
+Federated RL allows vehicles to share gradient updates rather than
+raw sensor data, reducing bandwidth while preserving privacy.
+\end{outline_note}
+
+\subsection{Foundation Models as Universal Driving Backbones}
+
+\begin{outline_note}
+Large pre-trained models (video, language, or multi-modal) could
+serve as universal feature extractors across heterogeneous traffic
+scenarios, reducing the need for scenario-specific reward shaping
+and enabling zero-shot transfer to new cities.
+\end{outline_note}
+
+% ==========================================================
+\section{Conclusion \textnormal{\small ($\approx$600 words)}}
+\label{sec:conclusion}
+
+\begin{outline_note}
+\textbf{Content.}
+Synthesize the three-paradigm evolution.
+Reiterate the three-layer taxonomy and how it provides a unified
+framework for understanding 100 papers across the field.
+Emphasize the critical bottlenecks: safety verification, scalability,
+and real-time LLM integration.
+End with a forward-looking statement on the convergence of MARL,
+Transformer architectures, and LLM reasoning as the most promising
+path toward fully autonomous, fleet-scale driving.
+\end{outline_note}
+
+% ==========================================================
+\section*{References}
+\addcontentsline{toc}{section}{References}
+
+\begin{outline_note}
+The bibliography will include all 100 papers from the reference list
+plus foundational works cited in the body.  A \texttt{.bib} file
+will be maintained alongside this document.  Citation style:
+author--year (natbib), consistent with conference/journal conventions.
+
+\textbf{Breakdown by category (planned)}:
+\begin{itemize}[nosep]
+  \item Foundational MARL theory: Refs 1--8 (+ Shapley 1953, Littman 1994, Bernstein 2002)
+  \item Problem formulation: Refs 9--17
+  \item Core MARL algorithms: Refs 18--25
+  \item Communication and coordination: Refs 26--38
+  \item Learning paradigms: Refs 39--50
+  \item Autonomous driving applications: Refs 51--75
+  \item Transformer and foundation models: Refs 76--90
+  \item Safety, transfer, and scalability: Refs 83--87, 91--96
+  \item Benchmarks and datasets: Refs 72--75, 82, 97--98
+  \item Open challenges: Refs 99--100
+  \item Papers from \texttt{refs/} folder (18 full-text papers)
+\end{itemize}
+\end{outline_note}
+
+% ==========================================================
+\newpage
+\appendix
+
+\section*{Appendix: Planned Figure and Table Summary}
+\addcontentsline{toc}{section}{Appendix: Planned Figure and Table Summary}
+
+\begin{table}[h!]
+\centering
+\caption{Summary of planned visual elements in the full survey paper.}
+\label{tab:figures_summary}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{c l l l}
+\toprule
+\textbf{No.} & \textbf{Element} & \textbf{Location} & \textbf{Type} \\
+\midrule
+Fig.\ 1 & Three-paradigm evolution timeline (2003--2024) & \S1.1 & Timeline infographic \\
+Fig.\ 2 & PRISMA literature selection flowchart & \S1.3 & Flowchart \\
+Fig.\ 3 & Three-layer taxonomy tree & \S1.4 & Hierarchy diagram \\
+Fig.\ 4 & POMDP vs.\ Dec-POMDP/POSG comparison & \S2.2 & Architecture diagram \\
+Fig.\ 5 & Social LSTM vs.\ Social GAN prediction & \S3.3 & Architecture diagram \\
+Fig.\ 6 & Communication topology evolution & \S4.2.3 & Flow diagram \\
+Fig.\ 7 & V2X fusion strategies comparison & \S4.2.5 & System diagram \\
+Fig.\ 8 & Level-$k$ game-theoretic reasoning at merge & \S4.3.3 & Scenario diagram \\
+Fig.\ 9 & MAT encoder-decoder architecture & \S5.1.2 & Neural arch.\ diagram \\
+Fig.\ 10 & Neuro-symbolic LLM + MPC architecture & \S5.2.4 & System diagram \\
+Fig.\ 11 & Credit assignment taxonomy with trade-off curve & \S6.2 & Taxonomy + chart \\
+\midrule
+Table 1 & Paradigm shift summary & \S1.2 & Summary table \\
+Table 2 & CTDE algorithm comparison & \S4.1.2 & Comparison table \\
+Table 3 & Trajectory prediction methods & \S4.3.1 & Comparison table \\
+Table 4 & Traffic signal MARL methods & \S4.4.1 & Comparison table \\
+Table 5 & Simulation and benchmark ecosystem & \S4.5 & Comparison table \\
+Table 6 & Safety mechanisms & \S5.3 & Comparison table \\
+Table 7 & Master method comparison (all paradigms) & \S6.1 & Master table \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
