@@ -472,6 +472,424 @@ directions.
 Section~\ref{sec:conclusion} concludes.
 
 % ==========================================================
+\section{Background and Formal Foundations}
+\label{sec:background}
+
+This section establishes the mathematical and conceptual foundations upon which
+the remainder of the survey is built.  We begin with the single-agent
+formalism---Markov Decision Processes (MDPs) and Partially Observable Markov
+Decision Processes (POMDPs)---before extending the framework to accommodate
+multiple interacting agents through stochastic games and Decentralized POMDPs.
+We then briefly review the core deep reinforcement learning algorithms that
+underpin the methods discussed in later sections, introduce graph neural networks
+as a tool for relational reasoning over traffic scenes, and situate the learning
+components within the modular autonomous driving software stack.
+
+% ------------------------------------------------------------------
+\subsection{Single-Agent Formalism: MDP and POMDP}
+\label{sec:mdp_pomdp}
+
+\subsubsection*{Markov Decision Process}
+
+A \emph{Markov Decision Process} (MDP) provides the canonical mathematical
+framework for sequential decision-making under uncertainty.  Formally, an MDP
+is defined by the tuple
+$\mathcal{M} = \langle \mathcal{S}, \mathcal{A}, P, R, \gamma \rangle$,
+where:
+\begin{itemize}[noitemsep]
+  \item $\mathcal{S}$ is the \textbf{state space}, representing all possible
+        configurations of the world (e.g., positions, velocities, and headings
+        of all vehicles on the road);
+  \item $\mathcal{A}$ is the \textbf{action space}, representing the decisions
+        available to the agent (e.g., discrete maneuvers such as accelerate,
+        brake, or steer, or continuous values for throttle, steering angle, and
+        braking);
+  \item $P: \mathcal{S} \times \mathcal{A} \times \mathcal{S} \to [0,1]$ is the
+        \textbf{transition probability function}, where $P(s' \mid s, a)$ denotes
+        the probability of transitioning to state $s'$ after taking action $a$ in
+        state $s$;
+  \item $R: \mathcal{S} \times \mathcal{A} \to \mathbb{R}$ is the \textbf{reward
+        function}, which encodes the agent's objective (e.g., progress toward the
+        goal while penalizing collisions and comfort violations);
+  \item $\gamma \in [0, 1)$ is the \textbf{discount factor}, which controls the
+        relative weight of immediate versus future rewards.
+\end{itemize}
+The agent's goal is to find an optimal policy $\pi^*: \mathcal{S} \to \mathcal{A}$
+(or a distribution over actions in the stochastic case) that maximizes the
+expected discounted cumulative reward
+$\mathbb{E}\!\left[\sum_{t=0}^{\infty} \gamma^t R(s_t, a_t)\right]$.
+The Markov property---that the next state depends only on the current state and
+action, not on the full history---is what makes this optimization tractable via
+Bellman recursion.
+
+\subsubsection*{Partially Observable Markov Decision Process}
+
+While the MDP formalism is theoretically elegant, it assumes that the agent
+has complete access to the world state $s_t$ at each time step.  This assumption
+is violated in virtually every realistic autonomous driving scenario.
+Sensor range is finite: a vehicle cannot observe occluded regions behind
+buildings or other vehicles.  Sensor resolution is limited: LiDAR point clouds
+resolve objects only down to a certain angular precision.  And the world state
+includes latent variables that are not directly observable---such as the
+\emph{intent} of a pedestrian about to step off the curb, or the
+\emph{aggressiveness} of an oncoming merging driver.
+
+The \emph{Partially Observable Markov Decision Process} (POMDP) extends the
+MDP to handle this observational uncertainty by adding two components:
+\begin{itemize}[noitemsep]
+  \item $\mathcal{O}$: an \textbf{observation space}, representing what the
+        agent actually perceives (e.g., raw LiDAR scans, bounding-box
+        detections, or occupancy grids);
+  \item $Z: \mathcal{S} \times \mathcal{A} \times \mathcal{O} \to [0,1]$: an
+        \textbf{observation function}, where $Z(o \mid s', a)$ is the probability
+        of observing $o$ after transitioning to state $s'$ via action $a$.
+\end{itemize}
+Because the agent cannot directly observe the true state, the principled
+solution is to maintain a \textbf{belief state}
+$b_t \in \Delta(\mathcal{S})$---a probability distribution over world states
+given the history of observations and actions.  The belief is updated at each
+step via Bayes' rule:
+\[
+  b_{t+1}(s') \;\propto\;
+  Z(o_{t+1} \mid s', a_t)\!
+  \sum_{s \in \mathcal{S}} P(s' \mid s, a_t)\, b_t(s).
+\]
+Planning in belief space transforms the POMDP into an MDP over the continuous
+belief simplex, which is \textbf{PSPACE-hard} in the finite
+horizon~\cite{hubmann2018automated}.  In practice, this intractability is
+managed through particle-filter approximations of the belief state, and through
+architectures that use recurrent networks (LSTMs or GRUs) or Transformer memory
+modules as implicit belief representations, replacing the explicit probability
+distribution with a learned latent state.
+
+\citeauthor{hubmann2018automated}~\cite{hubmann2018automated} demonstrate a
+concrete instantiation of POMDP planning for autonomous driving at unsignalized
+intersections, where the hidden state includes the intent of crossing vehicles.
+By planning over a discrete approximation of the belief space, their system can
+perform evidence-gathering maneuvers---briefly inching forward to elicit
+reactions from occluded drivers---that are impossible for a fully observable MDP
+planner.  This example illustrates why the POMDP formalism is not merely a
+theoretical refinement but a practically essential one for safety-critical
+driving decisions.
+
+% ------------------------------------------------------------------
+\subsection{Multi-Agent Extension: Stochastic Games and Dec-POMDP}
+\label{sec:multiagent_formalism}
+
+When multiple agents operate simultaneously in a shared environment and each
+agent's reward depends on the joint behavior of all agents, the single-agent
+POMDP framework becomes insufficient.  Two distinct formalisms are employed
+depending on whether agents share objectives (cooperative settings) or have
+conflicting incentives (competitive or mixed-motive settings).
+
+\subsubsection*{Stochastic Games and Markov Games}
+
+A \emph{Stochastic Game} (SG), introduced by
+\citeauthor{shapley1953stochastic}~\cite{shapley1953stochastic}, is defined by
+the tuple
+$\langle N, \mathcal{S}, \{\mathcal{A}^i\}_{i=1}^N, P, \{R^i\}_{i=1}^N, \gamma \rangle$,
+where $N$ is the number of agents, each with its own action space
+$\mathcal{A}^i$ and reward function
+$R^i: \mathcal{S} \times \mathcal{A}^1 \times \cdots \times
+\mathcal{A}^N \to \mathbb{R}$.
+The transition function $P(s' \mid s, a^1, \ldots, a^N)$ depends on the
+\emph{joint} action of all agents.  Stochastic games generalize both
+single-agent MDPs (when $N=1$) and matrix games (when $|\mathcal{S}|=1$),
+and can represent fully competitive (zero-sum), fully cooperative (team-reward),
+or mixed-motive multi-agent interactions.
+
+\citeauthor{littman1994markov}~\cite{littman1994markov} introduced the closely
+related framework of \emph{Markov Games}, which has become the dominant
+formalism in the MARL literature.  Under this framework, the solution concept
+is a \emph{Nash equilibrium} policy profile
+$(\pi^{1*}, \ldots, \pi^{N*})$ such that no agent can unilaterally improve its
+expected return by deviating from its equilibrium policy.  For zero-sum
+two-player games, a unique Nash equilibrium in mixed strategies always exists
+(guaranteed by minimax theory); for general-sum games with $N > 2$, computing
+equilibria is PPAD-hard in the worst case.  In the cooperative case where all
+agents share the same reward function ($R^1 = \cdots = R^N = R$), the Markov
+Game reduces to a joint policy optimization problem, directly connecting
+game-theoretic and MARL formulations.
+
+In the context of autonomous driving, Markov Games capture the strategic
+interplay of traffic participants naturally.  A merging scenario, for instance,
+can be modeled as a mixed-motive game: the merging vehicle prefers a gap in
+traffic, while the through-lane vehicle prefers not to yield---yet both are
+penalized for collision.  \citeauthor{sadigh2016planning}~\cite{sadigh2016planning}
+exploit this structure to derive trajectories that deliberately influence the
+behavior of the human-driven vehicle by communicating intent through motion,
+demonstrating how game-theoretic reasoning can make autonomous vehicles more
+cooperative and interpretable traffic partners.
+
+\subsubsection*{Decentralized Partially Observable Markov Decision Process}
+
+For cooperative multi-agent settings with partial observability---the dominant
+setting in real-world autonomous driving---the most general formalism is the
+\emph{Decentralized Partially Observable Markov Decision Process}
+(Dec-POMDP)~\cite{bernstein2002complexity}.  A Dec-POMDP augments the Markov
+Game with per-agent observation spaces $\{\mathcal{O}^i\}$ and observation
+functions $\{Z^i\}$:
+\[
+  \langle N, \mathcal{S}, \{\mathcal{A}^i\}, P, R, \{\mathcal{O}^i\}, \{Z^i\}, \gamma \rangle.
+\]
+Crucially, in the fully cooperative Dec-POMDP, agents share a single team
+reward $R$, but each agent $i$ observes only
+$o^i_t \sim Z^i(\cdot \mid s_t, a_{t-1})$ rather than the full state.
+At execution time, each agent must act based solely on its own local
+observation history, without access to other agents' observations or actions.
+
+The key theoretical result is that solving a Dec-POMDP optimally is
+\textbf{NEXP-hard}~\cite{bernstein2002complexity}---significantly harder than
+the PSPACE-hard single-agent POMDP.  The root cause is the combinatorial
+explosion in the space of joint histories: with $N$ agents each accumulating
+$T$ time steps of observations, the joint observation-action history space
+grows as $O\!\left((|\mathcal{O}|\cdot|\mathcal{A}|)^{N \cdot T}\right)$.
+In practice, this intractability is addressed through three complementary
+strategies:
+\begin{enumerate}[noitemsep]
+  \item \textbf{CTDE approximations}: training a centralized critic with
+        access to global state while restricting each actor to local
+        observations only, as formalized by
+        \citeauthor{kraemer2016multi}~\cite{kraemer2016multi} and later
+        instantiated in MADDPG~\cite{lowe2017multi} and QMIX~\cite{rashid2018qmix};
+  \item \textbf{Communication}: allowing agents to share compact messages,
+        effectively reducing the degree of partial observability at the cost
+        of communication bandwidth (see Section~\ref{sec:paradigm2});
+  \item \textbf{Value-function factorization}: assuming conditional
+        independence across subsets of agents to decompose the joint
+        Q-function into per-agent utilities
+        (VDN~\cite{sunehag2018value}, QMIX~\cite{rashid2018qmix}).
+\end{enumerate}
+
+A \textbf{cooperative} fleet of autonomous vehicles---such as platoon control
+or cooperative intersection management---is most naturally modeled as a
+Dec-POMDP: agents share the objective of maximizing traffic throughput while
+minimizing total travel time, but each vehicle can only observe agents within
+its sensor range and must act locally at execution time.  A
+\textbf{mixed-motive} traffic scenario (e.g., lane merging or yielding at a
+roundabout) is better modeled as a Markov Game, where individual reward
+functions capture private preferences while a shared collision penalty aligns
+agents toward safety.
+
+% ------------------------------------------------------------------
+\subsection{Deep Reinforcement Learning Primer}
+\label{sec:drl_primer}
+
+The methods surveyed in later sections build on a small set of core deep
+reinforcement learning algorithms.  This subsection provides a self-contained
+summary of these building blocks, emphasizing the aspects most relevant to
+their multi-agent extensions.
+
+\subsubsection*{Value-Based Methods: DQN and Variants}
+
+\citeauthor{mnih2015human}~\cite{mnih2015human} demonstrated that a
+convolutional neural network trained via Q-learning---the \emph{Deep
+Q-Network} (DQN)---could achieve superhuman performance on 49 Atari games
+from raw pixel input.  DQN stabilizes Q-learning with two key innovations:
+an \emph{experience replay buffer} that breaks temporal correlations between
+consecutive training samples, and a \emph{target network} that freezes the
+bootstrapping parameters for a fixed number of steps, preventing the
+divergence caused by moving learning targets.
+
+In the multi-agent context, DQN forms the foundation of value-decomposition
+methods.  Both VDN~\cite{sunehag2018value} and QMIX~\cite{rashid2018qmix}
+maintain per-agent local $Q$-functions and mix them into a factored joint
+Q-value, inheriting the stability properties of experience replay and target
+networks while scaling to cooperative teams of agents.
+
+\subsubsection*{Policy Gradient Methods}
+
+While value-based methods work well for discrete action spaces, autonomous
+driving typically demands continuous control (e.g., precise steering angle
+and throttle values).  Policy gradient methods directly optimize the
+parameters $\theta$ of a stochastic policy $\pi_\theta$ by ascending the
+gradient of the expected return:
+\[
+  \nabla_\theta J(\pi_\theta) = \mathbb{E}_{\pi_\theta}\!\left[
+    \nabla_\theta \log \pi_\theta(a_t \mid s_t) \cdot A(s_t, a_t)\right],
+\]
+where $A(s_t, a_t) = Q(s_t, a_t) - V(s_t)$ is the advantage function that
+centers the gradient signal around a baseline, substantially reducing
+variance compared to the raw Monte-Carlo return.
+
+\emph{Asynchronous Advantage Actor-Critic} (A3C)~\cite{mnih2016asynchronous}
+parallelizes gradient collection across multiple environment instances, enabling
+sample-efficient online updates and decorrelating experience.  \emph{Proximal
+Policy Optimization} (PPO)~\cite{schulman2017proximal} further stabilizes
+training by clipping the policy update ratio within a trust region:
+\[
+  \mathcal{L}^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\left[
+    \min\!\left(r_t(\theta)\, A_t,\;
+    \mathrm{clip}(r_t(\theta), 1{-}\epsilon, 1{+}\epsilon)\, A_t\right)\right],
+\]
+where $r_t(\theta) = \pi_\theta(a_t \mid s_t) / \pi_{\theta_{\text{old}}}(a_t \mid s_t)$
+is the probability ratio and $\epsilon$ is the clip threshold.  PPO's
+simplicity, stability, and strong empirical performance have made it the
+de facto standard for single-agent continuous-control driving tasks, and it
+directly generalizes to the multi-agent setting as MAPPO~\cite{yu2021surprising}.
+
+Off-policy methods offer greater sample efficiency.  \emph{Deep Deterministic
+Policy Gradient} (DDPG) extends Q-learning to continuous action spaces by
+maintaining a deterministic actor $\mu_\theta(s)$ trained by ascending the
+critic gradient $\nabla_\theta Q(s, \mu_\theta(s))$.  \emph{Soft Actor-Critic}
+(SAC) adds entropy regularization to the policy objective, encouraging
+exploration and preventing premature convergence to deterministic policies---a
+property particularly beneficial in sparse-reward driving scenarios where
+broad exploration of the state space is critical.
+
+\subsubsection*{Relevance to Multi-Agent Extensions}
+
+Each single-agent algorithm above has a multi-agent analogue:
+DQN $\to$ QMIX~\cite{rashid2018qmix} (cooperative value decomposition);
+DDPG $\to$ MADDPG~\cite{lowe2017multi} (centralized critic, decentralized
+actors); PPO $\to$ MAPPO~\cite{yu2021surprising} (agents with a shared or
+centralized critic).  The key challenge in adapting single-agent algorithms
+to the multi-agent setting is the \emph{non-stationarity} problem: from
+agent $i$'s perspective, the environment's transition distribution
+$P(s' \mid s, a^i)$ appears non-stationary because it implicitly depends on
+the simultaneously changing policies of all other agents.  This violates the
+Markov assumption required for convergence guarantees of standard single-agent
+RL algorithms, and motivates the Centralized Training, Decentralized Execution
+(CTDE) framework discussed at depth in Section~\ref{sec:paradigm2}.
+
+% ------------------------------------------------------------------
+\subsection{Graph Neural Networks for Relational Reasoning}
+\label{sec:gnns}
+
+Traffic scenes are inherently \emph{relational}: the relevance of a
+neighboring vehicle to the ego-agent depends on spatial proximity, relative
+heading, and the road topology.  Standard convolutional neural networks
+process regular grids and lack the inductive biases needed to efficiently
+encode these pairwise agent relationships.  \emph{Graph Neural Networks}
+(GNNs) provide the appropriate representation: they model a traffic scene as
+a directed graph $\mathcal{G} = (\mathcal{V}, \mathcal{E})$ where nodes
+$v \in \mathcal{V}$ represent agents (or road elements) and edges
+$(u, v) \in \mathcal{E}$ encode spatial or semantic interactions.
+Node features are iteratively updated via message passing:
+\[
+  h_v^{(k+1)} = \mathrm{UPDATE}\!\left(h_v^{(k)},\;
+    \mathrm{AGGREGATE}\!\left(\{m_{uv}^{(k)} : (u,v) \in \mathcal{E}\}\right)\right),
+\]
+where $m_{uv}^{(k)}$ is a message from neighbor $u$ to $v$ at layer $k$.
+
+\emph{Graph Attention Networks} (GAT)~\cite{velickovic2018graph} extend this
+framework by computing learned attention coefficients $\alpha_{uv}$ that
+weight each neighbor's contribution:
+\[
+  \alpha_{uv} = \frac{
+    \exp\!\left(\mathrm{LeakyReLU}(\mathbf{a}^\top
+      [\mathbf{W} h_u \,\|\, \mathbf{W} h_v])\right)
+  }{
+    \sum_{k \in \mathcal{N}(v)} \exp\!\left(\mathrm{LeakyReLU}(\mathbf{a}^\top
+      [\mathbf{W} h_k \,\|\, \mathbf{W} h_v])\right)
+  },
+\]
+where $\mathbf{W}$ is a learnable projection matrix, $\mathbf{a}$ is an
+attention vector, and $\|$ denotes vector concatenation.  The attention
+mechanism allows the network to focus automatically on the most relevant
+neighboring agents---such as the lead vehicle in the ego-lane during a
+car-following maneuver---without requiring hand-crafted distance thresholds
+or fixed neighborhood sizes.
+
+\citeauthor{jiang2019graph}~\cite{jiang2019graph} apply GNNs directly to
+cooperative MARL, constructing a dynamic graph from agent observations and
+using graph convolutions to compute communication-like feature aggregations.
+Their Graph Convolutional Reinforcement Learning approach demonstrates that
+policies learned over a graph adjacency structure are naturally invariant to
+permutations of agent indices---a critical inductive bias when the number of
+surrounding vehicles changes dynamically across episodes.
+
+In the trajectory prediction domain, \citeauthor{salzmann2020trajectron}
+\cite{salzmann2020trajectron} (Trajectron++) and
+\citeauthor{liang2020lanegcn}~\cite{liang2020lanegcn} (LaneGCN) demonstrate
+that GNNs encoding heterogeneous agent-to-agent and agent-to-map interactions
+substantially outperform architectures based on rasterized top-down images,
+both in displacement error and in the calibration of predicted probability
+distributions.
+
+This subsection provides the representational foundation for the
+value-decomposition and communication methods reviewed in
+Section~\ref{sec:paradigm2}: QMIX, graph-based MARL, and VectorNet all rely
+on variants of graph-structured feature aggregation to encode inter-agent
+dependencies compactly.
+
+% ------------------------------------------------------------------
+\subsection{Overview of the Autonomous Driving Software Stack}
+\label{sec:ad_stack}
+
+Understanding where learning-based methods intervene in the broader autonomous
+driving pipeline is essential for contextualizing the papers reviewed in
+subsequent sections.  Classical autonomy systems adopt a \emph{modular
+pipeline} architecture consisting of four sequentially composed sub-systems:
+
+\begin{enumerate}[leftmargin=*, label=\textbf{(\arabic*)}]
+  \item \textbf{Perception.}
+        Raw sensor data (LiDAR point clouds, camera images, radar returns)
+        are processed to detect and classify objects (vehicles, pedestrians,
+        cyclists), estimate their 3-D poses, and build a semantic map of the
+        scene.  While deep learning has largely solved static-object detection,
+        multi-sensor fusion under adverse weather and detection under adversarial
+        conditions remain active research areas.
+
+  \item \textbf{Prediction.}
+        Given the current perceived state, the prediction module forecasts
+        the short-horizon ($\leq$5 s) future trajectories of all road users.
+        This is the module most directly connected to the interaction-modeling
+        literature surveyed in Section~\ref{sec:paradigm2}: Social
+        GAN~\cite{gupta2018social}, Trajectron++~\cite{salzmann2020trajectron},
+        VectorNet~\cite{gao2020vectornet}, and TNT~\cite{zhao2020tnt} all
+        operate at this layer.
+
+  \item \textbf{Planning.}
+        Given predicted futures, the planner selects a reference trajectory
+        or sequence of waypoints for the ego-vehicle that optimizes the driving
+        objective (efficiency, comfort, safety) while respecting traffic rules
+        and predicted agent behaviors.  MARL methods primarily intervene at this
+        layer: cooperative policy networks replace or augment the traditional
+        motion planner, enabling dynamic negotiation of right-of-way and
+        adaptive formation control.
+
+  \item \textbf{Control.}
+        A low-level controller (PID, MPC, or neural feedback policy) tracks the
+        planned trajectory by issuing throttle, braking, and steering commands
+        to the vehicle actuators.
+\end{enumerate}
+
+The modular pipeline's principal weakness is the \emph{cascading error}
+problem: imperfections at any stage compound as they propagate downstream, and
+the planning module receives no gradient signal that would allow it to request
+more uncertainty-aware predictions.  Furthermore, the pipeline's clean
+separation of concerns breaks down whenever prediction and planning are tightly
+coupled, as in the merged prediction-planning paradigm of PiP~\cite{song2020pip}.
+
+\emph{End-to-end} (E2E) learning approaches collapse the entire pipeline into
+a single neural network that maps raw observations directly to control
+commands~\cite{bojarski2016end,codevilla2018end}.  E2E architectures eliminate
+the information bottleneck between modules and allow the system to learn
+task-relevant representations directly from driving objectives.  However, E2E
+methods trade interpretability for performance and raise significant challenges
+for safety certification.  \citeauthor{sallab2017deep}~\cite{sallab2017deep}
+propose a recurrent deep RL architecture positioned between these extremes:
+it uses learned perceptual features but trains a separate policy module via RL
+rather than pure imitation, gaining flexibility without discarding modularity
+entirely.
+
+MARL methods can be positioned along this modular-to-end-to-end spectrum.
+Value-decomposition approaches such as QMIX~\cite{rashid2018qmix} typically
+operate at the planning level, receiving pre-processed observation vectors
+from an upstream perception stack.  Communication-based methods like
+TarMAC~\cite{das2019tarmac} add a lateral information-sharing channel between
+the planning modules of multiple vehicles.  LLM-based cognitive agents
+(Section~\ref{sec:paradigm3}) operate at the highest level of abstraction,
+producing natural-language driving instructions that are translated into motion
+primitives by downstream controllers.
+
+Together, the formal frameworks (MDP/POMDP/SG/Dec-POMDP), algorithmic
+building blocks (DQN, PPO, DDPG, actor-critic), representational tools (GNNs),
+and architectural context (the AD software stack) established in this section
+provide the essential scaffolding for the three-paradigm survey that follows.
+
+% ==========================================================
 \bibliographystyle{unsrtnat}
 \bibliography{references}
 
