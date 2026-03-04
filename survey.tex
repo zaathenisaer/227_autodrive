@@ -1,0 +1,478 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\usepackage{times}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue,
+    pdfencoding=auto
+}
+
+\onehalfspacing
+\setlength{\parskip}{0.5em}
+\titlespacing{\section}{0pt}{14pt}{6pt}
+\titlespacing{\subsection}{0pt}{10pt}{4pt}
+\titlespacing{\subsubsection}{0pt}{8pt}{3pt}
+
+% =========================================================
+\title{\textbf{Multi-Agent Reinforcement Learning for Autonomous Driving:\\
+Algorithms, Coordination, and Emerging Paradigms}\\[0.4em]
+{\large \textit{A Comprehensive Survey}}}
+\author{\large Literature Review}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% =========================================================
+\begin{abstract}
+Autonomous driving (AD) is one of the most demanding challenges in modern
+artificial intelligence, requiring real-time perception, intent prediction of
+heterogeneous road users, and safe, socially compliant decision-making in a
+continuously evolving multi-agent environment.
+This survey provides a systematic and comprehensive review of the field,
+organized around a three-layer taxonomy that traces the evolution from
+single-agent foundations to fully cognitive driving systems.
+
+\textbf{Layer 1---Foundational Single-Agent RL.}
+We begin by formalizing the AD decision problem as a Partially Observable
+Markov Decision Process (POMDP)~\cite{hubmann2018automated} and surveying the
+algorithmic building blocks that underpin all subsequent work: end-to-end
+behavior cloning~\cite{bojarski2016end}, augmentation strategies to overcome
+covariate shift~\cite{bansal2018chauffeur}, conditional imitation
+learning~\cite{codevilla2018end}, and policy gradient optimization including
+PPO~\cite{schulman2017proximal} and its deep RL derivatives~\cite{sallab2017deep,kiran2021deep}.
+
+\textbf{Layer 2---MARL Algorithms and Coordination Protocols.}
+We then extend the formalism to the Partially Observable Stochastic Game (POSG)
+framework~\cite{littman1994markov,bernstein2002complexity}, where the
+non-stationarity and exponential joint-action space of traffic demand specialized
+multi-agent methods.  We survey value-decomposition approaches
+(VDN~\cite{sunehag2018value}, QMIX~\cite{rashid2018qmix}, QTRAN~\cite{son2019qtran}),
+actor-critic CTDE methods (MADDPG~\cite{lowe2017multi},
+COMA~\cite{foerster2018counterfactual}, MAPPO~\cite{yu2021surprising},
+HATRPO~\cite{kuba2021hatrpo}), role-based architectures
+(RODE~\cite{wang2021rode}, ROMA~\cite{wang2020roma}), hierarchical
+MARL~\cite{vezhnevets2017feudal,chu2020multi}, and game-theoretic
+approaches~\cite{shapley1953stochastic,littman1994markov,hu2003nash,foerster2018lola}.
+For communication and coordination, we trace the progression from early
+learned protocols~\cite{foerster2016learning,sukhbaatar2016learning} to
+targeted attention-based messaging~\cite{das2019tarmac,jiang2018learning},
+graph-structured communication~\cite{jiang2019graph,kim2019learning}, and
+V2X cooperative perception~\cite{wang2020v2vnet}.
+On the representation side, we analyze the evolution from grid social
+pooling~\cite{alahi2016social} to vectorized GNNs~\cite{gao2020vectornet,liang2020lanegcn},
+multi-modal prediction~\cite{gupta2018social,salzmann2020trajectron,zhao2020tnt},
+and bidirectional prediction--planning coupling~\cite{song2020pip}.
+
+\textbf{Layer 3---Scalable and Transformer/LLM-Augmented Agents.}
+The final layer surveys the nascent paradigm of cognitive driving agents,
+including Multi-Agent Transformer architectures~\cite{wen2022multi},
+Decision Transformers~\cite{chen2021decision}, and LLM-based systems
+that inject common-sense reasoning and few-shot
+generalization~\cite{fu2023drive,wen2023dilu,mao2023gpt,sha2023languagempc}.
+We also survey critical simulation environments (CARLA~\cite{dosovitskiy2017carlaopenurbandriving},
+SMARTS~\cite{zhou2020smarts}), benchmarks
+(NuPlan~\cite{caesar2021nuplan}, Argoverse~\cite{chang2019argoverse},
+Waymo~\cite{ettinger2021large}), and safety frameworks~\cite{shalev2016safe,achiam2017constrained}.
+
+Across all paradigms, we synthesize the key technical contributions,
+identify the precise limitations each work addresses, and draw cross-cutting
+connections.  The survey covers 100 primary references spanning 2003 to 2024,
+and concludes with a structured analysis of open challenges: formal safety
+verification under distributional shift, bandwidth-constrained V2X communication,
+real-time LLM inference, and the need for generative world models to cover
+long-tail corner cases.
+\end{abstract}
+
+\noindent\textbf{Keywords:} Autonomous Driving, Multi-Agent Reinforcement Learning,
+Centralized Training Decentralized Execution, Trajectory Prediction, Graph Neural
+Networks, Vehicle-to-Vehicle Communication, Large Language Models, Cognitive Agents,
+Safety, Simulation.
+
+\newpage
+\tableofcontents
+\newpage
+
+% ==========================================================
+\section{Introduction}
+\label{sec:intro}
+
+The pursuit of fully autonomous driving (AD) represents one of the most
+transformative yet technically demanding frontiers in modern artificial
+intelligence.  It requires agents to simultaneously perceive complex,
+dynamic environments with high fidelity; predict the intentions of
+heterogeneous road users ranging from aggressive merging vehicles to
+unpredictable pedestrians; and execute safe, efficient, and socially
+compliant maneuvers under continuous time pressure.  Critically, these
+tasks are not independent: the optimal action for the ego-vehicle depends
+on the predicted behavior of surrounding agents, which in turn depends on
+the ego-vehicle's own future actions.  This mutual dependence renders
+autonomous driving a canonical \emph{multi-agent} decision problem in
+which the performance of any single policy is fundamentally coupled to the
+policies of all other actors in the scene.
+
+Despite decades of engineering effort, achieving the level of robustness and
+generalization required for unrestricted public deployment on diverse road
+types and in novel scenarios remains an open research problem.  Failures
+continue to occur precisely in situations that are statistically rare (so-called
+\emph{long-tail} events) yet critically important for safety: unusual road
+geometries, ambiguous right-of-way negotiations, adversarial pedestrian
+behavior, or unexpected sensor degradation.  The historical arc of the field
+can be understood as a sequence of three successive paradigm shifts, each
+motivated by well-defined limitations of its predecessor.
+
+% ------------------------------------------------------------------
+\subsection{Motivation and Problem Statement}
+\label{sec:motivation}
+
+Classical autonomous driving systems relied on a modular pipeline
+architecture that decomposes the complex driving task into distinct,
+hierarchical sub-systems: perception, localization, prediction, planning,
+and control~\cite{caesar2021nuplan}.  While this ``divide-and-conquer''
+approach offers engineering interpretability and allows individual modules
+to be validated in isolation, it suffers from systematic limitations.
+Most importantly, it is prone to \emph{cascading errors}: a minor
+imperfection in the perception module (e.g., a flickering bounding box at
+the boundary of sensor range) can propagate downstream, destabilizing the
+planner and leading to conservative, suboptimal, or even dangerous
+behavior.  Furthermore, hand-crafted rules in the planning module fail to
+capture the nuanced, interactive nature of human driving, resulting in
+behavior that is either overly conservative or strategically naive.
+
+The promise of data-driven, end-to-end learning as an alternative was first
+demonstrated at scale by \citeauthor{bojarski2016end}~\cite{bojarski2016end},
+who showed that a convolutional neural network mapping raw front-camera images
+directly to steering commands could navigate real roads without explicit
+intermediate representations.  However, the limitations of pure imitation
+learning quickly became apparent: the \emph{covariate shift} problem, wherein
+the agent drifts into states absent from the training distribution and has no
+learned recovery mechanism, remained a fundamental obstacle~\cite{bansal2018chauffeur}.
+More deeply, pure imitation cannot model the \emph{strategic interactions}
+between agents: the response of a merging vehicle depends not only on its own
+preferences but also on its prediction of the ego-vehicle's intent, creating a
+feedback loop that single-agent behavior cloning cannot represent.
+
+This interactive structure formally defines autonomous driving as a
+\emph{multi-agent} problem.  In a traffic environment with $N$ vehicles,
+each agent $i$ observes a partial view $o^i_t$ of the world state $s_t$,
+executes an action $a^i_t$ from its action space $\mathcal{A}^i$, and
+receives a reward $R^i(s_t, \mathbf{a}_t)$ that depends on the
+\emph{joint} action vector $\mathbf{a}_t = (a^1_t, \ldots, a^N_t)$.
+The transition dynamics
+$T(s_{t+1} \mid s_t, \mathbf{a}_t)$ couple all agents together, so
+no single agent can treat the environment as stationary while other
+agents are simultaneously adapting their
+policies~\cite{zhang2021multi,busoniu2008comprehensive}.
+
+This non-stationarity violates the foundational Markov assumption required
+for convergence of standard single-agent RL algorithms.  \citeauthor{shalev2016safe}~\cite{shalev2016safe}
+further show that even if non-stationarity is managed, the gradient
+variance of policy gradient methods scales as $O(1/p^2)$ for accident
+probability $p \ll 1$, making unconstrained RL impractically slow for
+safety-critical applications.  The central research question motivating
+this survey is therefore:
+
+\begin{quote}
+\emph{How have MARL algorithms, coordination protocols, and cognitive
+architectures evolved to address the cooperative and competitive challenges
+inherent in multi-agent traffic environments, and what are the remaining
+open problems?}
+\end{quote}
+
+% ------------------------------------------------------------------
+\subsection{Driving Forces Behind Paradigm Shifts}
+\label{sec:drivers}
+
+The field has not evolved uniformly; rather, it has undergone discrete
+paradigm shifts each driven by a convergence of factors.  We identify four
+primary categories of driving forces:
+
+\subsubsection*{(1) Algorithmic Breakthroughs}
+The development of deep Q-networks (DQN) by \citeauthor{mnih2015human}~\cite{mnih2015human}
+demonstrated that deep neural networks could learn superhuman strategies for
+Atari games directly from raw pixels, immediately suggesting that similar
+methods could be applied to driving perception and control.  Policy gradient
+methods (REINFORCE, A3C/A2C)~\cite{mnih2016asynchronous} and their proximal
+trust-region variants (TRPO, PPO~\cite{schulman2017proximal}) provided stable
+and scalable optimization for continuous-action driving tasks.  The discovery
+of the CTDE (Centralized Training, Decentralized Execution) framework by
+\citeauthor{kraemer2016multi}~\cite{kraemer2016multi} and its instantiations
+in MADDPG~\cite{lowe2017multi} and QMIX~\cite{rashid2018qmix} unlocked
+principled cooperative MARL.  Graph neural networks
+(GAT~\cite{velickovic2018graph}, GCN-based policy networks~\cite{jiang2019graph})
+provided the relational inductive biases needed to encode agent-to-agent
+and agent-to-map relationships compactly.  Most recently, Transformer
+architectures~\cite{vaswani2017attention} and large language
+models~\cite{brown2020language} have begun reshaping the cognitive layer of
+driving agents~\cite{wen2022multi,fu2023drive,sha2023languagempc}.
+
+\subsubsection*{(2) Hardware and Compute Scaling}
+The availability of large GPU clusters has made it practical to train policies
+on billions of environment steps, a prerequisite for sample-hungry MARL
+algorithms.  Real-world sensor packages---combining high-resolution LiDAR,
+multi-camera arrays, GPS/IMU, and radar---have reached cost levels that enable
+fleet-scale data collection, providing the large-scale supervision necessary for
+pre-training foundation models for driving~\cite{caesar2020nuscenes}.
+
+\subsubsection*{(3) Dataset and Simulation Ecosystem Maturation}
+High-fidelity, open-source driving simulators (CARLA~\cite{dosovitskiy2017carlaopenurbandriving},
+SUMO~\cite{krajzewicz2012recent}) and domain-specific MARL training
+platforms (SMARTS~\cite{zhou2020smarts}, MACAD-Gym~\cite{palanisamy2020multi},
+Flow~\cite{wu2017flow}) have dramatically reduced the barrier to multi-agent
+experimentation.  Simultaneously, large-scale real-world driving datasets
+(nuScenes~\cite{caesar2020nuscenes}, Argoverse~\cite{chang2019argoverse},
+Waymo Open Motion~\cite{ettinger2021large}) and closed-loop planning
+benchmarks (NuPlan~\cite{caesar2021nuplan}) have standardized evaluation
+and exposed the limitations of open-loop metrics.
+
+\subsubsection*{(4) Real-World Deployment Demands}
+Commercial robotaxi programs (Waymo, Cruise, Baidu Apollo) have pushed
+research toward long-tail robustness, edge-case handling, and
+interpretability---precisely the domains where purely data-driven methods
+struggle.  Emerging V2X infrastructure standards (C-V2X, DSRC) have
+created new opportunities for cooperative perception and planning that
+transcend what any single-vehicle sensor suite can
+achieve~\cite{wang2020v2vnet}.
+
+% ------------------------------------------------------------------
+\subsection{Survey Scope and Literature Selection Methodology}
+\label{sec:scope}
+
+\subsubsection*{Topic Coverage}
+This survey covers the following interconnected topics:
+\begin{itemize}[noitemsep]
+  \item \textbf{Formal foundations}: POMDP, Markov games~\cite{littman1994markov},
+        stochastic games~\cite{shapley1953stochastic},
+        Dec-POMDP~\cite{bernstein2002complexity};
+  \item \textbf{Single-agent RL for driving}: behavior cloning~\cite{bojarski2016end},
+        covariate shift mitigation~\cite{bansal2018chauffeur},
+        conditional imitation~\cite{codevilla2018end},
+        risk-sensitive RL~\cite{kahn2017uncertainty},
+        hierarchical RL~\cite{chen2019model};
+  \item \textbf{MARL algorithms}: value decomposition
+        (VDN~\cite{sunehag2018value}, QMIX~\cite{rashid2018qmix},
+        QTRAN~\cite{son2019qtran}, MAVEN~\cite{mahajan2019maven}),
+        actor-critic (MADDPG~\cite{lowe2017multi},
+        COMA~\cite{foerster2018counterfactual},
+        MAPPO~\cite{yu2021surprising}, HATRPO~\cite{kuba2021hatrpo},
+        FACMAC~\cite{peng2021facmac}),
+        role-based (RODE~\cite{wang2021rode}, ROMA~\cite{wang2020roma}),
+        hierarchical~\cite{vezhnevets2017feudal,chu2020multi},
+        game-theoretic (Nash Q-learning~\cite{hu2003nash},
+        LOLA~\cite{foerster2018lola}, PSRO~\cite{lanctot2017unified});
+  \item \textbf{Communication and coordination}: DIAL/RIAL~\cite{foerster2016learning},
+        CommNet~\cite{sukhbaatar2016learning},
+        TarMAC~\cite{das2019tarmac},
+        ATOC~\cite{jiang2018learning},
+        IC3Net~\cite{singh2019learning},
+        structured communication~\cite{kim2019learning},
+        message dropout~\cite{kim2019message},
+        bandwidth-constrained protocols~\cite{wang2020bandwidth},
+        VBC~\cite{wang2021vbc},
+        V2X cooperative perception~\cite{wang2020v2vnet};
+  \item \textbf{Interaction-aware representation and prediction}: Social
+        LSTM~\cite{alahi2016social}, Social GAN~\cite{gupta2018social},
+        Trajectron++~\cite{salzmann2020trajectron},
+        VectorNet~\cite{gao2020vectornet}, LaneGCN~\cite{liang2020lanegcn},
+        TNT~\cite{zhao2020tnt}, MultiPath~\cite{chai2019multipath},
+        PiP~\cite{song2020pip};
+  \item \textbf{Multi-agent autonomous driving applications}: traffic signal
+        control~\cite{wei2019colight,wei2019presslight,zheng2019learning},
+        cooperative lane change~\cite{wang2018urban},
+        highway driving~\cite{isele2018navigating},
+        mixed-autonomy traffic~\cite{wu2017flow,stern2018dissipation},
+        POMDP planning~\cite{hubmann2018automated},
+        game-theoretic driving~\cite{fisac2019hierarchical,sadigh2016planning,fridovich2020efficient},
+        intent-aware planning~\cite{schwarting2019social,schwarting2021deep};
+  \item \textbf{Transformer/LLM-based agents}: Multi-Agent
+        Transformer~\cite{wen2022multi}, Decision Transformer~\cite{chen2021decision},
+        GTrXL~\cite{parisotto2020stabilizing},
+        DiLu~\cite{wen2023dilu},
+        GPT-Driver~\cite{mao2023gpt},
+        Drive Like a Human~\cite{fu2023drive},
+        LanguageMPC~\cite{sha2023languagempc};
+  \item \textbf{Safety and robustness}: constrained policy
+        optimization~\cite{achiam2017constrained}, safe RL via
+        shielding~\cite{alshiekh2018safe}, risk-aware
+        MARL~\cite{prashanth2016variance}, responsibility-sensitive
+        safety~\cite{shalev2016safe};
+  \item \textbf{Sim-to-real transfer}: domain
+        randomization~\cite{tobin2017domain}, meta-RL (MAML)~\cite{finn2017model};
+  \item \textbf{Simulation and benchmarks}: CARLA~\cite{dosovitskiy2017carlaopenurbandriving},
+        SUMO~\cite{krajzewicz2012recent}, SMARTS~\cite{zhou2020smarts},
+        SMAC~\cite{samvelyan2019starcraft},
+        nuScenes~\cite{caesar2020nuscenes}, NuPlan~\cite{caesar2021nuplan},
+        Argoverse~\cite{chang2019argoverse},
+        Waymo Open Motion~\cite{ettinger2021large}.
+\end{itemize}
+
+\subsubsection*{Time Span and Search Strategy}
+The survey spans foundational theoretical work from 1953
+(Shapley's stochastic games~\cite{shapley1953stochastic}) through the
+present (2024), with the main body focused on the period 2016--2024 during
+which deep learning methods came to dominate the field.  The literature was
+assembled through:
+\begin{enumerate}[noitemsep]
+  \item Systematic keyword searches on IEEE Xplore, ACM Digital Library,
+        Semantic Scholar, and arXiv using the terms
+        ``\emph{multi-agent reinforcement learning autonomous driving}'',
+        ``\emph{cooperative driving deep RL}'', ``\emph{vehicle coordination MARL}'',
+        and ``\emph{LLM autonomous driving}'';
+  \item Forward and backward citation tracing from seed papers
+        (Kiran et al.~\cite{kiran2021deep}, Zhang et al.~\cite{zhang2021multi},
+        Busoniu et al.~\cite{busoniu2008comprehensive});
+  \item Venue coverage: NeurIPS, ICML, ICLR, CVPR, ECCV, ICCV,
+        ICRA, IROS, IEEE T-ITS, IEEE T-IV, IEEE T-PAMI, AAAI, IJCAI.
+\end{enumerate}
+
+\subsubsection*{Inclusion and Exclusion Criteria}
+\textbf{Included}: peer-reviewed conference and journal papers, and
+preprints with $\geq 50$ citations that directly address either (a) MARL
+methodology applicable to driving, or (b) AD planning/prediction/control
+with a learning component.
+\textbf{Excluded}: purely perception-only methods without a planning
+component, rule-based planners without any learning, and non-vehicular
+multi-robot work without demonstrated relevance to road scenarios.
+The final corpus comprises \textbf{100 primary references}.
+
+% ------------------------------------------------------------------
+\subsection{Three-Layer Taxonomy}
+\label{sec:taxonomy}
+
+The organizing framework of this survey consists of three hierarchical
+layers that map to successive paradigm shifts in the field:
+
+\begin{enumerate}[leftmargin=*, label=\textbf{Layer \arabic*.}]
+  \item \textbf{Algorithmic Foundations (Paradigm I, $\approx$2003--2018).}
+        This layer covers the theoretical formalisms (MDP, POMDP, Stochastic
+        Games, Dec-POMDP), the deep RL building blocks (DQN, A3C, PPO,
+        DDPG, SAC), and the early single-agent driving methods (DAVE-2,
+        ChauffeurNet, conditional imitation learning).  The central
+        limitation exposed here is that single-agent learning is
+        fundamentally insufficient for dense, interactive traffic because
+        it cannot account for the non-stationarity induced by other
+        learning agents.
+
+  \item \textbf{Coordination and Communication (Paradigm II, $\approx$2017--2022).}
+        This layer addresses the core MARL challenge through three parallel
+        thrusts: (a) \emph{MARL algorithms} that achieve stable cooperative
+        learning (value decomposition, CTDE actor-critic, hierarchical and
+        game-theoretic methods); (b) \emph{communication protocols} that
+        enable agents to share information selectively and efficiently
+        under bandwidth constraints; and (c) \emph{relational representation
+        and prediction--planning integration} using GNNs and vectorized
+        scene encoders.  The central limitation remaining at the end of
+        this paradigm is brittleness in long-tail scenarios that fall
+        outside the training distribution.
+
+  \item \textbf{Scalable and Cognitive Architectures (Paradigm III, $\approx$2021--present).}
+        This layer covers Transformer-based MARL architectures that scale
+        attention over large agent populations, and LLM-driven cognitive
+        agents that inject world-scale knowledge and chain-of-thought
+        reasoning to handle rare, ambiguous scenarios.  Safety, sim-to-real
+        transfer, and world-model-based planning are cross-cutting concerns
+        in this layer.
+\end{enumerate}
+
+Critically, the layers are not mutually exclusive: modern systems
+routinely combine elements from all three (e.g., a GNN scene encoder
+from Layer~2 coupled with an LLM reasoning module from Layer~3, trained
+via MAPPO from Layer~2, within a CARLA environment from Layer~2).  The
+taxonomy is therefore better understood as a set of conceptual lenses
+rather than a strict chronological partition.
+
+% ------------------------------------------------------------------
+\subsection{Comparison with Existing Surveys and Contributions}
+\label{sec:comparison}
+
+A number of surveys have addressed adjacent topics, but none covers the
+full scope of this work:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{General MARL surveys}~\cite{busoniu2008comprehensive,zhang2021multi}:
+        provide excellent algorithmic coverage but lack AD-specific
+        application depth, MARL platform comparisons, and the emerging
+        LLM/cognitive agent dimension.
+  \item \textbf{AD-RL surveys}~\cite{kiran2021deep,sallab2017deep}:
+        primarily address single-agent methods; MARL is treated at
+        most as an advanced topic in a few paragraphs, with no systematic
+        comparison of CTDE methods, communication protocols, or
+        value-decomposition approaches.
+  \item \textbf{Cooperative driving reviews}: typically narrow in scope,
+        covering either traffic-signal control or V2X cooperative
+        perception in isolation, without connecting these to the broader
+        MARL literature.
+  \item \textbf{Trajectory prediction surveys}: excellent coverage of
+        motion forecasting methods but generally absent of any connection
+        to the policy-learning and multi-agent coordination literature.
+\end{itemize}
+
+The unique contributions of this survey are fourfold:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Unified three-layer taxonomy} that integrates algorithmic,
+        representational, and cognitive perspectives under a single
+        organizational framework.
+  \item \textbf{Systematic comparison of 100 papers}: for each method
+        we explicitly state the limitation it addresses, the technical
+        mechanism it introduces, and the residual limitations that
+        motivated subsequent work.
+  \item \textbf{Critical limitation analysis per category}: rather than
+        cataloguing results, we trace causal chains between methods,
+        making the survey a narrative of scientific progress rather than
+        an annotated bibliography.
+  \item \textbf{Structured open-challenges mapping}: we distinguish
+        between short-term engineering challenges (computational overhead
+        of LLM inference, standardizing V2X feature representations)
+        and long-term research challenges (formal safety certificates for
+        neuro-symbolic systems, generative world models for distributional
+        coverage).
+\end{enumerate}
+
+% ------------------------------------------------------------------
+\subsection{Paper Organization}
+\label{sec:organization}
+
+The remainder of this survey is organized as follows.
+Section~\ref{sec:background} establishes the formal problem framework,
+defining POMDP and POSG formalisms and the AD software stack.
+Section~\ref{sec:paradigm1} surveys single-agent learning foundations
+(Paradigm~I), covering behavior cloning, covariate shift mitigation,
+and single-agent policy optimization.
+Section~\ref{sec:paradigm2} is the core of the survey (Paradigm~II),
+examining MARL algorithms, communication and coordination protocols,
+interaction-aware representation, and autonomous driving applications.
+Section~\ref{sec:paradigm3} covers scalable and cognitive architectures
+(Paradigm~III), including Transformer-based MARL and LLM-driven agents.
+Section~\ref{sec:benchmarks} surveys simulation environments and
+evaluation benchmarks.
+Section~\ref{sec:challenges} synthesizes open challenges and future
+directions.
+Section~\ref{sec:conclusion} concludes.
+
+% ==========================================================
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+\end{document}
