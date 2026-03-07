@@ -937,31 +937,31 @@ assumption, and residual limitation.
 \caption{Master comparison of representative methods across paradigms.}
 \label{tab:master_methods}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{p{1.7cm}p{0.8cm}p{1.4cm}p{1.8cm}p{1.8cm}p{1.5cm}p{1.6cm}p{1.8cm}p{2.0cm}}
+\begin{tabular}{p{1.7cm} p{0.8cm} p{1.4cm} p{1.8cm} p{1.8cm} p{1.5cm} p{1.6cm} p{1.8cm} p{2.0cm}}
 \toprule
 \textbf{Method} & \textbf{Year} & \textbf{Paradigm} & \textbf{Core Mechanism} &
-\textbf{Scenario / Benchmark} & \textbf{Safety Strategy} & \textbf{Comm. Need} &
+\textbf{Scenario / Benchmark} & \textbf{Safety Strategy} & \textbf{Communication Dependency} &
 \textbf{Key Strength} & \textbf{Primary Limitation} \\
 \midrule
-DAVE-2 \citep{bojarski2016end} & 2016 & IL & End-to-end BC from raw pixels &
+DAVE-2 \citep{bojarski2016end} & 2016 & Imitation learning & End-to-end BC from raw pixels &
 Lane keeping / real-road & Data-driven implicit cues & None &
 Proof of end-to-end feasibility & Severe covariate shift \\
 
-ChauffeurNet \citep{bansal2018chauffeur} & 2018 & IL & Perturbation-augmented imitation &
+ChauffeurNet \citep{bansal2018chauffeur} & 2018 & Imitation learning & Perturbation-augmented imitation &
 Urban planning logs & Auxiliary collision/off-road losses & None &
 Recovery behavior learning & Limited explicit interaction modeling \\
 
-Social LSTM \citep{alahi2016social} & 2016 & Interaction model &
+Social LSTM \citep{alahi2016social} & 2016 & Interaction modeling &
 Grid-based social pooling &
 Pedestrian forecasting & Social collision avoidance prior & None &
 First explicit relational prediction & Grid scaling bottleneck \\
 
-VectorNet \citep{gao2020vectornet} & 2020 & Interaction model &
+VectorNet \citep{gao2020vectornet} & 2020 & Interaction modeling &
 Vectorized scene GNN + attention &
 Argoverse forecasting & Better structural priors & None &
 Efficient long-range map-agent reasoning & Prediction-planning still decoupled \\
 
-PiP \citep{song2020pip} & 2020 & Interaction-planning coupling &
+PiP \citep{song2020pip} & 2020 & Coupled prediction-planning &
 Prediction conditioned on ego candidates &
 nuScenes interaction planning & Joint safety-efficiency selection & None &
 Mitigates ``frozen robot'' behavior & Candidate-set approximation of full game \\
@@ -981,7 +981,7 @@ Intermediate-feature V2V fusion GNN &
 V2VSim occluded detection/prediction & Multi-view perception robustness & V2V required &
 Best bandwidth-accuracy tradeoff & Sensitive to packet loss / synchronization \\
 
-DiLu \citep{wen2023dilu} & 2023 & LLM cognitive agent &
+DiLu \citep{wen2023dilu} & 2023 & LLM-based cognitive agent &
 Reasoning + reflection + memory retrieval &
 CARLA closed-loop & Experience-informed self-correction & Optional cloud &
 Continual adaptation without retraining & Reflection quality depends on LLM reliability \\
@@ -996,11 +996,14 @@ Balances cognition and real-time safety & End-to-end formal guarantees still ope
 \end{table}
 
 Across these methods, three drivers repeatedly explain paradigm transitions:
-increased data and compute availability, benchmark realism (open-loop to
-closed-loop), and stronger deployment requirements from interaction-heavy urban
-traffic. These drivers motivate why the field moved from imitation-only
-pipelines to interaction-aware MARL and then toward LLM-augmented cognitive
-architectures.
+(1) \textbf{data and compute scaling}, which enabled the shift from
+DAVE-2/ChauffeurNet to VectorNet-scale encoders; (2) \textbf{benchmark
+evolution}, which shifted emphasis from open-loop tests toward closed-loop
+evaluation in DiLu and LanguageMPC settings; and (3) \textbf{deployment
+requirements}, where interaction-heavy urban traffic motivated RSS-style safety
+filters, MADDPG/CTDE stability, and V2VNet cooperative perception.
+These drivers explain why the field moved from imitation-only pipelines to
+interaction-aware MARL and then toward LLM-augmented cognitive architectures.
 
 % ---------------------------------------------------------
 \section{Open Challenges and Future Directions}
