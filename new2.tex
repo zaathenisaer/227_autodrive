@@ -6,7 +6,7 @@
 \usepackage{geometry}
 \geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
 \usepackage{times}
-\usepackage[numbers,sort\&compress]{natbib}
+\usepackage[numbers,sort&compress]{natbib}
 \usepackage{hyperref}
 \usepackage{graphicx}
 \usepackage{titlesec}
@@ -62,7 +62,8 @@ inject commonsense reasoning, memory, and neuro-symbolic control into the stack.
 The survey emphasizes field-shaping methods and benchmark-defining systems while
 organizing a broader set of representative studies into compact thematic
 comparisons. This keeps the paper survey-like rather than encyclopedic while
-preserving coverage of more than 100 references. Across paradigms, three tensions recur: expressiveness versus
+preserving coverage of more than 100 references. Across paradigms, three
+tensions recur: expressiveness versus
 tractability in credit assignment, explicit communication versus implicit
 coordination, and closed-world optimization versus robustness under long-tail
 shift. We conclude that the most promising path forward is neither purely
@@ -240,7 +241,11 @@ a modular pipeline and learn only prediction or planning components
 \cite{gao2020vectornet,liang2020lanegcn,song2020pip}. Multi-agent work is also
 split between \emph{vehicle-level decision making} (merging, negotiation,
 cooperative driving), \emph{infrastructure coordination} (traffic signal
-control), and \emph{mixed-autonomy traffic shaping} \cite{wei2019colight,wei2019presslight,stern2018dissipation,wu2017flow}. Keeping these deployment locations separate is crucial when comparing methods, because what counts as ``state'', ``action'', and even ``agent'' varies sharply across them.
+control), and \emph{mixed-autonomy traffic shaping}
+\cite{wei2019colight,wei2019presslight,stern2018dissipation,wu2017flow}.
+Keeping these deployment locations separate is crucial when comparing methods,
+because what counts as ``state'', ``action'', and even ``agent'' varies sharply
+across them.
 
 % ==========================================================
 \section{Paradigm I: Single-Agent Learning Foundations}
