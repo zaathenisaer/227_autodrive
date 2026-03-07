@@ -1,0 +1,674 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\usepackage{times}
+\usepackage[numbers,sort\&compress]{natbib}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue,
+    pdfencoding=auto
+}
+
+\setstretch{1.15}
+\setlength{\parskip}{0.35em}
+\titlespacing{\section}{0pt}{12pt}{5pt}
+\titlespacing{\subsection}{0pt}{8pt}{3pt}
+\titlespacing{\subsubsection}{0pt}{6pt}{2pt}
+
+% =========================================================
+\title{\textbf{Multi-Agent Reinforcement Learning for Autonomous Driving:
+A Condensed Survey of Algorithms, Coordination, and Cognitive Paradigms}}
+\author{\large Literature Review}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% =========================================================
+\begin{abstract}
+Autonomous driving is fundamentally a multi-agent decision problem: every plan
+for the ego vehicle depends on how surrounding agents react, and those reactions
+in turn depend on the ego vehicle's own future behavior. This survey reviews the
+field through three linked paradigms. The first covers single-agent learning
+foundations, including end-to-end imitation learning, covariate-shift mitigation,
+and early reinforcement learning for driving. The second focuses on the core
+multi-agent turn: Centralized Training with Decentralized Execution (CTDE),
+value decomposition, actor-critic coordination, communication protocols,
+interaction-aware prediction, and cooperative driving applications. The third
+surveys recent scalable and cognitive architectures, especially Transformer-based
+multi-agent policies and large language model (LLM) driven driving agents that
+inject commonsense reasoning, memory, and neuro-symbolic control into the stack.
+
+The survey emphasizes field-shaping methods and benchmark-defining systems while
+organizing a broader set of representative studies into compact thematic
+comparisons. This keeps the paper survey-like rather than encyclopedic while
+preserving coverage of more than 100 references. Across paradigms, three tensions recur: expressiveness versus
+tractability in credit assignment, explicit communication versus implicit
+coordination, and closed-world optimization versus robustness under long-tail
+shift. We conclude that the most promising path forward is neither purely
+end-to-end nor purely symbolic, but hybrid: interaction-aware MARL and world
+models at the policy level, coupled with structured safety constraints and
+higher-level reasoning modules for rare, ambiguous traffic scenarios.
+\end{abstract}
+
+\noindent\textbf{Keywords:} Autonomous Driving, Multi-Agent Reinforcement Learning,
+Imitation Learning, Centralized Training Decentralized Execution, Graph Neural
+Networks, Cooperative Perception, Large Language Models, Safety, Simulation.
+
+% ==========================================================
+\section{Introduction}
+\label{sec:intro}
+
+Autonomous driving (AD) requires robust perception, intent prediction,
+interactive planning, and low-latency control in scenes populated by multiple
+vehicles, pedestrians, and infrastructure entities. The resulting problem is not
+well captured by a purely single-agent view: surrounding actors are strategic,
+partially observed, and behaviorally coupled to the ego vehicle. For that
+reason, the historical development of learning-based AD is best understood as a
+progression from \emph{single-agent policy learning}, to \emph{explicit
+multi-agent coordination}, and then to \emph{cognitive and scalable
+architectures} that try to generalize beyond closed training distributions.
+
+The survey is organized around that progression. Paradigm~I established the
+foundations with end-to-end behavior cloning and early driving RL, but remained
+fragile under covariate shift and interaction misspecification. Paradigm~II
+introduced the main MARL toolkit: CTDE, value decomposition, actor-critic
+methods, learned communication, graph-based interaction modeling, and dedicated
+multi-agent simulators. Paradigm~III extends the field toward Transformer-based
+sequence models and LLM-augmented agents that can reason over rare or ambiguous
+scenarios, albeit with unresolved latency, grounding, and safety issues.
+
+\subsection{Scope and Selection}
+\label{sec:scope}
+
+This condensed survey retains the full thematic breadth of the longer draft but
+compresses exposition by treating canonical papers in detail and covering closely
+related follow-up work comparatively. The literature base spans more than 100
+references from foundational game-theoretic MARL to contemporary LLM-based AD,
+with emphasis on methodological turning points, benchmark-defining systems, and
+studies that exposed limitations later addressed by the next paradigm.
+
+We retain four survey goals. First, we place AD consistently in the POMDP/POSG
+framework. Second, we compare algorithm families rather than listing papers one
+by one. Third, we connect representation learning, policy optimization,
+communication, and evaluation infrastructure under a shared multi-agent lens.
+Fourth, we include the emerging cognitive-agent literature rather than stopping
+at classical MARL. The resulting structure follows a mainstream survey pattern:
+problem formulation, taxonomy, paradigm-wise review, cross-cutting synthesis,
+and open problems.
+
+\subsection{Representative Literature Map}
+\label{sec:litmap}
+
+To keep the narrative concise without sacrificing breadth, we summarize the
+reviewed literature by theme below.
+
+\begin{itemize}[leftmargin=*,itemsep=0.25em,topsep=0.3em]
+  \item \textbf{Foundational MARL theory and general surveys:}
+  stochastic and Markov game formulations, equilibrium analysis, and broad MARL
+  overviews appear in \cite{shapley1953stochastic,littman1994markov,bernstein2002complexity,hu2003nash,busoniu2008comprehensive,lanctot2017unified,zhang2021multi,hernandez2019survey,tan1993multi,kraemer2016multi,foerster2018lola,vinyals2019alphastar,gupta2017cooperative,zhang2019global,de2020independent}.
+
+  \item \textbf{Single-agent AD learning foundations:}
+  end-to-end imitation and single-agent RL are represented by
+  \cite{bojarski2016end,codevilla2018end,bansal2018chauffeur,ross2011reduction,sallab2017deep,mnih2015human,mnih2016asynchronous,schulman2017proximal,kahn2017uncertainty,chen2019model,kiran2021deep,hubmann2018automated}.
+
+  \item \textbf{Interaction modeling, prediction, and planning:}
+  social pooling, graph-based prediction, and planning-aware forecasting include
+  \cite{alahi2016social,gupta2018social,lee2017desire,deo2018convolutional,gao2020vectornet,salzmann2020trajectron,liang2020lanegcn,zhao2020tnt,chai2019multipath,song2020pip,sadigh2016planning,fisac2019hierarchical,schwarting2019social,schwarting2021deep,fridovich2020efficient,deo2020trajectory}.
+
+  \item \textbf{Core MARL algorithm families:}
+  value decomposition, actor-critic CTDE, role-based, and hierarchical methods
+  include \cite{sunehag2018value,rashid2018qmix,son2019qtran,mahajan2019maven,lowe2017multi,foerster2018counterfactual,yu2021surprising,kuba2021hatrpo,peng2021facmac,wang2021rode,wang2020roma,vezhnevets2017feudal,chu2020multi,wang2020shapley,su2021vdac}.
+
+  \item \textbf{Communication, coordination, and cooperative perception:}
+  differentiable communication and V2X-oriented methods include
+  \cite{foerster2016learning,sukhbaatar2016learning,das2019tarmac,jiang2018learning,singh2019learning,kim2019learning,kim2019message,wang2021vbc,wang2020bandwidth,wang2020v2vnet,jiang2019graph,velickovic2018graph}.
+
+  \item \textbf{Applications and mixed-autonomy traffic control:}
+  representative work on traffic signal control, ramp merging, and connected
+  traffic systems includes
+  \cite{wei2019colight,wei2019presslight,zheng2019learning,wang2018urban,wu2017flow,stern2018dissipation,talebpour2016influence,isele2018navigating,shalev2016safe,palanisamy2020multi}.
+
+  \item \textbf{Simulation platforms and datasets:}
+  the main evaluation ecosystem includes
+  \cite{dosovitskiy2017carlaopenurbandriving,krajzewicz2012recent,zhou2020smarts,caesar2020nuscenes,caesar2021nuplan,chang2019argoverse,ettinger2021large,waymo2021open,samvelyan2019starcraft,papoudakis2021benchmarking}.
+
+  \item \textbf{Transformers, LLM agents, safety, and transfer:}
+  the recent scalable and cognitive literature includes
+  \cite{vaswani2017attention,wen2022multi,chen2021decision,janner2021offline,parisotto2020stabilizing,brown2020language,fu2023drive,wen2023dilu,mao2023gpt,sha2023languagempc,wang2023voyager,achiam2017constrained,alshiekh2018safe,prashanth2016variance,tobin2017domain,finn2017model,he2016opponent,zhang2018fully,li2020deep}.
+\end{itemize}
+
+\subsection{Three-Layer Taxonomy}
+\label{sec:taxonomy}
+
+The rest of the survey uses a three-layer taxonomy. \textbf{Layer~1} covers
+single-agent learning foundations: behavior cloning, imitation learning, and
+early driving RL. \textbf{Layer~2} covers explicit multi-agent coordination:
+MARL algorithms, communication mechanisms, and interaction-aware scene models.
+\textbf{Layer~3} covers scalable and cognitive architectures: Transformer-based
+policies, LLM planners, and hybrid neuro-symbolic control. The layers are not
+mutually exclusive; modern systems often combine a Layer~2 scene encoder,
+Layer~2 MARL policy, and Layer~3 reasoning module. Their value lies in
+structuring the field's main shifts in emphasis.
+
+\begin{table}[ht]
+\centering
+\caption{Three paradigm shifts in learning-based autonomous driving.
+\label{tab:paradigm_shift}}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabular}{p{2.2cm}p{3.0cm}p{3.2cm}p{3.2cm}p{2.6cm}}
+\toprule
+\textbf{Paradigm} & \textbf{Problem that became dominant} & \textbf{Main innovation} & \textbf{Landmark studies} & \textbf{Main residual issue} \\
+\midrule
+I. Single-agent foundations & Covariate shift, modular error propagation, weak interaction modeling & End-to-end imitation, conditional imitation, early policy optimization & \cite{bojarski2016end,bansal2018chauffeur,codevilla2018end,schulman2017proximal} & Other agents treated as environment \\
+\addlinespace
+II. MARL and coordination & Non-stationarity, credit assignment, communication, cooperative control & CTDE, value decomposition, actor-critic MARL, graph-based and communication-aware models & \cite{lowe2017multi,rashid2018qmix,yu2021surprising,das2019tarmac,gao2020vectornet,wang2020v2vnet} & Scale, long-tail robustness, interpretability \\
+\addlinespace
+III. Scalable and cognitive agents & Sparse long-tail coverage, opaque decisions, weak semantic reasoning & Transformer policies, sequence modeling, LLM reasoning, neuro-symbolic hybrids & \cite{wen2022multi,fu2023drive,wen2023dilu,mao2023gpt,sha2023languagempc} & Latency, grounding, verification, sim-to-real gap \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ==========================================================
+\section{Problem Formulation and Background}
+\label{sec:background}
+
+\subsection{From POMDP to POSG}
+
+For a single vehicle, the driving problem is typically formalized as a partially
+observable Markov decision process (POMDP), with hidden world state
+$s_t \in \mathcal{S}$, action $a_t \in \mathcal{A}$, observation
+$o_t \in \mathcal{O}$, transition model $T$, reward $R$, and discount factor
+$\gamma$. The objective is
+\begin{equation}
+\pi^* = \arg\max_{\pi} \; \mathbb{E}_{\tau \sim \pi}
+\left[\sum_{t=0}^{T} \gamma^t R(s_t,a_t)\right].
+\label{eq:pomdp}
+\end{equation}
+This formalism is useful for end-to-end imitation learning and single-agent RL,
+but it is incomplete for interactive traffic, because the transition dynamics are
+jointly determined by many agents.
+
+A more faithful formalization is the partially observable stochastic game (POSG),
+which introduces an agent set $\mathcal{N}$, per-agent observations and actions,
+and a joint transition model
+\begin{equation}
+T(s_{t+1} \mid s_t, a_t^1, \dots, a_t^N).
+\label{eq:posg}
+\end{equation}
+This shift matters because the core pathology of MARL is \emph{non-stationarity}:
+from the perspective of any one learner, the environment changes when the other
+agents' policies change \cite{littman1994markov,bernstein2002complexity,lowe2017multi,zhang2021multi}. In traffic, rewards are usually mixed rather than purely cooperative or purely adversarial: agents share collision-avoidance incentives but compete for space, right-of-way, or short-term efficiency.
+
+\subsection{Why AD Stress-Tests MARL}
+
+Autonomous driving is an unusually hard MARL domain for four reasons. First,
+observations are partial and noisy, and safety-relevant latent variables such as
+human intent are never directly observed. Second, action spaces are often
+continuous, which weakens the applicability of purely discrete MARL methods.
+Third, rare failures dominate practical importance: a method that works on common
+scenes but fails under merges, occlusions, or ambiguous negotiation is not
+deployment-ready. Fourth, evaluation is expensive and fragmented across
+simulators, logged datasets, and closed-loop tests \cite{caesar2021nuplan,zhou2020smarts,dosovitskiy2017carlaopenurbandriving,kiran2021deep}.
+
+\subsection{Software-Stack View}
+
+The learning problem can sit at several locations in the AD stack. Some systems
+learn a direct observation-to-control policy \cite{bojarski2016end}. Others keep
+a modular pipeline and learn only prediction or planning components
+\cite{gao2020vectornet,liang2020lanegcn,song2020pip}. Multi-agent work is also
+split between \emph{vehicle-level decision making} (merging, negotiation,
+cooperative driving), \emph{infrastructure coordination} (traffic signal
+control), and \emph{mixed-autonomy traffic shaping} \cite{wei2019colight,wei2019presslight,stern2018dissipation,wu2017flow}. Keeping these deployment locations separate is crucial when comparing methods, because what counts as ``state'', ``action'', and even ``agent'' varies sharply across them.
+
+% ==========================================================
+\section{Paradigm I: Single-Agent Learning Foundations}
+\label{sec:paradigm1}
+
+\subsection{Behavior Cloning and Its Limits}
+
+The early modern wave of learning-based AD was driven by end-to-end imitation.
+DAVE-2 demonstrated that a convolutional network could map front-camera images
+directly to steering commands \cite{bojarski2016end}. Conditional imitation
+learning later improved route compliance by conditioning on high-level commands
+such as turn-left or go-straight \cite{codevilla2018end}. These systems were
+important because they showed that handcrafted intermediate representations were
+not strictly necessary for limited driving tasks.
+
+Their central weakness was covariate shift. Supervised training on expert data
+concentrates probability mass on nominal states; once the learned policy drifts,
+it enters states absent from the demonstrations and has no learned recovery
+behavior. The classic reduction from imitation to online learning in DAgger
+formalized this issue \cite{ross2011reduction}. In AD, ChauffeurNet was the most
+influential practical response: it used perturbation-based synthesis to expose
+the model to off-trajectory and near-failure states during training, showing that
+scale alone does not solve robustness \cite{bansal2018chauffeur}. This paper is
+arguably the clearest end point of purely single-agent imitation for driving:
+stronger than naive behavior cloning, but still fundamentally limited by how
+other agents are modeled.
+
+\subsection{Single-Agent RL for Driving}
+
+Reinforcement learning offered a way to optimize long-horizon safety and
+efficiency rather than imitating expert trajectories. General deep RL advances
+such as DQN, asynchronous actor-critic methods, and PPO supplied the algorithmic
+basis \cite{mnih2015human,mnih2016asynchronous,schulman2017proximal}. In AD,
+representative single-agent formulations include uncertainty-aware collision
+avoidance and model-based policy learning under limited data
+\cite{kahn2017uncertainty,chen2019model}, along with broader surveys of driving
+RL \cite{sallab2017deep,kiran2021deep}.
+
+However, once traffic becomes interactive, the single-agent abstraction begins to
+fail for structural rather than merely data-efficiency reasons. The behavior of
+surrounding vehicles is not an exogenous disturbance but a strategic response to
+the ego plan. Treating other agents as part of the environment obscures joint
+credit assignment and induces unstable learning when multiple adaptive actors are
+present \cite{zhang2021multi,busoniu2008comprehensive}.
+
+\subsection{Early Interaction Modeling Before Full MARL}
+
+Before explicit MARL became dominant, the field moved through an intermediate
+phase that improved prediction without fully solving coordination. Social LSTM
+showed that neighboring agents should be modeled jointly rather than
+independently \cite{alahi2016social}. Later work replaced rasterized pooling with
+richer scene representations: DESIRE and convolutional social pooling improved
+multi-modal trajectory prediction \cite{lee2017desire,deo2018convolutional},
+while graph- and vector-based models such as Trajectron++, VectorNet, LaneGCN,
+TNT, and MultiPath captured lane topology and long-range interaction more
+explicitly \cite{gupta2018social,salzmann2020trajectron,gao2020vectornet,liang2020lanegcn,zhao2020tnt,chai2019multipath}.
+
+The strongest conceptual bridge to Paradigm~II was planning-aware interaction
+modeling. PiP argued that prediction should be conditioned on candidate ego
+plans, because other agents react to what the ego vehicle intends to do
+\cite{song2020pip}. Related work on socially compatible motion planning and
+hierarchical game-theoretic planning made the same point from a control
+perspective \cite{sadigh2016planning,fisac2019hierarchical,schwarting2019social,schwarting2021deep,fridovich2020efficient}. These methods significantly improved interaction reasoning, but they still left coordination mostly implicit rather than jointly optimized.
+
+\subsection{What Paradigm~I Could Not Resolve}
+
+Paradigm~I established the key ingredients of learning-based AD but left three
+open problems. First, other agents remained only partially modeled, so the
+non-stationarity of genuine multi-agent learning was not addressed. Second,
+credit assignment across interacting vehicles was absent. Third, many methods
+optimized open-loop prediction quality rather than closed-loop joint behavior.
+These limitations directly motivated the explicit MARL turn.
+
+% ==========================================================
+\section{Paradigm II: MARL Algorithms and Coordination}
+\label{sec:paradigm2}
+
+\subsection{CTDE as the Central Organizing Principle}
+
+The most important conceptual advance of Paradigm~II was centralized training
+with decentralized execution (CTDE). The idea is simple but powerful: during
+training, a critic or mixing function can access global information; during
+execution, each agent acts from local observations only \cite{kraemer2016multi,lowe2017multi}. CTDE solves neither credit assignment nor scalability by itself,
+but it gives MARL a workable interface between learning and deployment.
+
+Two algorithm families became especially influential. \emph{Value decomposition}
+methods factorize a joint value function into per-agent terms. VDN enforced an
+additive decomposition, while QMIX introduced a monotonic mixing network that
+preserves decentralized argmax consistency and became the canonical baseline for
+cooperative MARL \cite{sunehag2018value,rashid2018qmix}. QTRAN and MAVEN tried
+to relax the expressiveness bottlenecks of QMIX, although at greater complexity
+and with less clear practical dominance \cite{son2019qtran,mahajan2019maven}.
+
+\emph{Actor-critic CTDE} methods addressed continuous control more naturally.
+MADDPG showed that centralized critics could stabilize multi-agent policy
+gradients in mixed settings \cite{lowe2017multi}. COMA introduced a
+counterfactual advantage for exact cooperative credit assignment in discrete
+action spaces \cite{foerster2018counterfactual}. MAPPO later demonstrated that a
+comparatively simple centralized-value PPO baseline is surprisingly competitive
+across benchmarks, making it a highly relevant practical reference point
+\cite{yu2021surprising}. HATRPO and FACMAC are important specialized extensions:
+HATRPO adds stronger optimization guarantees, while FACMAC improves sample
+efficiency for high-cost simulators \cite{kuba2021hatrpo,peng2021facmac}.
+
+Other variants are best understood comparatively rather than as independent
+turning points. Independent baselines remain useful stress tests
+\cite{tan1993multi,de2020independent}. Role-based methods encode structured
+heterogeneity \cite{wang2021rode,wang2020roma}; hierarchical methods improve
+temporal abstraction \cite{vezhnevets2017feudal,chu2020multi}; and recent
+credit-assignment work refines cooperative value factorization
+\cite{wang2020shapley,su2021vdac}. Together, these works broaden the design
+space but do not displace QMIX, MADDPG, and MAPPO as the main reference points.
+
+\subsection{Communication and Coordination Protocols}
+
+When coordination cannot emerge reliably from reward structure alone,
+communication becomes explicit. Differentiable communication began with recurrent
+message-passing approaches and mean-pooling baselines \cite{foerster2016learning,sukhbaatar2016learning}. Later methods learned \emph{who} should communicate
+with \emph{whom}. TarMAC introduced targeted communication with attention, while
+other work learned communication schedules, gating, or compressed messages
+\cite{das2019tarmac,jiang2018learning,singh2019learning,kim2019learning,kim2019message}.
+
+In driving, the communication problem is more constrained than in generic MARL.
+Real systems operate under bandwidth, latency, packet loss, and sensing-range
+limits. As a result, V2X-oriented work matters more than generic message passing
+alone. V2VNet is representative because it moves communication into the feature
+space of cooperative perception, which is closer to realistic connected driving
+than symbol-level messages between abstract agents \cite{wang2020v2vnet}. Related
+work on bandwidth control and viewpoint-aware broadcasting makes the same point:
+communication quality is itself a resource-allocation problem
+\cite{wang2021vbc,wang2020bandwidth}. Graph-attentional communication also
+bridges generic MARL and structured traffic interaction \cite{jiang2019graph,velickovic2018graph}.
+
+The broader lesson is that communication is most useful when it conveys
+information unavailable to local sensing, not when it simply duplicates what a
+well-designed centralized critic already exploited during training.
+
+\subsection{Interaction-Aware Representation Learning}
+
+A second line of Paradigm~II made interaction structure explicit in the state
+representation. Graph neural networks and vectorized map encodings became the
+default choice because traffic scenes are relational rather than grid-like.
+VectorNet and LaneGCN were especially influential in replacing heavy raster
+representations with structured polyline graphs \cite{gao2020vectornet,liang2020lanegcn}. Trajectron++, TNT, and MultiPath pushed multi-modal prediction and
+scene-conditioned forecasting further \cite{salzmann2020trajectron,zhao2020tnt,chai2019multipath}. These models are not MARL algorithms by themselves, but in
+practice they became the dominant front-end for MARL-style decision systems.
+
+The key conceptual advance was not merely better prediction accuracy; it was the
+recognition that prediction and planning should be tightly coupled. PiP,
+socially compatible planning, and hierarchical interaction reasoning all showed
+that forecasting other agents independently of the ego plan produces brittle
+closed-loop behavior \cite{song2020pip,sadigh2016planning,fisac2019hierarchical,schwarting2021deep}. This insight narrowed the gap between trajectory prediction and joint policy learning.
+
+\subsection{Applications: Traffic Control, Mixed Autonomy, and Cooperative Driving}
+
+Paradigm~II matured because it was tested on concrete application classes rather
+than only toy benchmarks. In traffic signal control, graph-based MARL systems
+such as CoLight and PressLight showed that coordination among intersections can
+be framed as a scalable cooperative control problem \cite{wei2019colight,wei2019presslight,zheng2019learning,wang2018urban}. In mixed-autonomy traffic,
+Flow and related studies demonstrated that even a small fraction of learned or
+controlled vehicles can improve macro-scale traffic efficiency and dampen stop-
+and-go waves \cite{wu2017flow,stern2018dissipation,talebpour2016influence}.
+Vehicle-level navigation and highway interaction studies further extended MARL to
+merging, lane changes, and risk-sensitive negotiation
+\cite{isele2018navigating,hubmann2018automated,shalev2016safe,palanisamy2020multi}.
+
+These applications revealed an important asymmetry. Traffic signal control often
+fits cooperative MARL cleanly because agent interfaces are explicit and the
+environment is relatively structured. Vehicle-level AD is harder: sensing is
+partial, action spaces are continuous, and the cost of rare failure is much
+higher. Results therefore transfer imperfectly across application classes even
+when the algorithmic vocabulary looks similar.
+
+\subsection{Evaluation Ecosystem}
+
+Progress in Paradigm~II depended heavily on simulators and benchmarks. CARLA
+provided high-fidelity urban simulation with perception stacks
+\cite{dosovitskiy2017carlaopenurbandriving}; SUMO enabled cheap large-scale traffic
+experiments \cite{krajzewicz2012recent}; SMARTS and MACAD-Gym made multi-agent AD
+training more systematic \cite{zhou2020smarts,palanisamy2020multi}; and SMAC,
+though not an AD benchmark, remained a standard cooperative MARL stress test
+\cite{samvelyan2019starcraft,papoudakis2021benchmarking}. On the data side,
+nuScenes, Argoverse, Waymo Open, and WOMD expanded perception and motion
+forecasting coverage, while nuPlan pushed closed-loop planning evaluation closer
+to deployment needs \cite{caesar2020nuscenes,chang2019argoverse,waymo2021open,ettinger2021large,caesar2021nuplan}.
+
+\begin{table}[ht]
+\centering
+\caption{Compact comparison of widely used simulation and dataset ecosystems.
+\label{tab:platforms}}
+\renewcommand{\arraystretch}{1.15}
+\small
+\begin{tabular}{p{2.3cm}p{1.3cm}p{1.8cm}p{1.6cm}p{5.6cm}}
+\toprule
+\textbf{Platform} & \textbf{Type} & \textbf{Closed-loop} & \textbf{Native MARL} & \textbf{Typical role in the literature} \\
+\midrule
+CARLA \cite{dosovitskiy2017carlaopenurbandriving} & Simulator & Yes & Partial & High-fidelity perception-to-control and urban interaction studies \\
+SUMO \cite{krajzewicz2012recent} & Simulator & Yes & Yes & Large-scale traffic control and mixed-autonomy experiments \\
+SMARTS \cite{zhou2020smarts} & Simulator & Yes & Yes & Standardized multi-agent AD scenarios and benchmarking \\
+SMAC \cite{samvelyan2019starcraft} & Simulator & Yes & Yes & Non-AD cooperative MARL baseline development \\
+nuScenes \cite{caesar2020nuscenes} & Dataset & No & No & Perception and motion-prediction evaluation \\
+Argoverse \cite{chang2019argoverse} & Dataset & No & No & Trajectory forecasting and scene understanding \\
+WOMD \cite{ettinger2021large} & Dataset & Partial & No & Large-scale motion forecasting and logged interaction data \\
+nuPlan \cite{caesar2021nuplan} & Benchmark & Yes & No & Closed-loop planning and planner comparison \\
+Waymo Open \cite{waymo2021open} & Dataset & No & No & Large-scale multi-sensor supervision and evaluation support \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Why Paradigm~II Still Plateaued}
+
+Paradigm~II solved the language of coordination but not the long-tail problem.
+Three limitations became increasingly visible. First, algorithmic improvements
+were often benchmark-sensitive: methods that excelled in cooperative game suites
+did not necessarily dominate in closed-loop driving. Second, many communication
+and CTDE setups assumed cleaner observability or tighter synchronization than
+real V2X systems can guarantee. Third, even strong interaction-aware MARL agents
+remained opaque and brittle under rare or semantically unusual situations. These
+limitations opened the door to Paradigm~III.
+
+% ==========================================================
+\section{Paradigm III: Scalable and Cognitive Architectures}
+\label{sec:paradigm3}
+
+\subsection{Transformer-Based Policies and Sequence Models}
+
+Transformers entered MARL because attention scales more gracefully to variable
+agent sets and long contexts than recurrent encoders. The most representative
+multi-agent example in this survey is MAT, which models joint action generation
+autoregressively and showed that sequence modeling can compete strongly with
+classical value-decomposition and actor-critic approaches \cite{wen2022multi}. The
+broader trend is supported by general sequence-modeling work such as Transformer
+attention, Decision Transformer, and trajectory-sequence modeling
+\cite{vaswani2017attention,chen2021decision,janner2021offline,parisotto2020stabilizing}.
+
+For AD, the appeal of Transformer-based policies is twofold. First, traffic
+scenes naturally consist of sets or sequences of agents, lanes, and interaction
+histories. Second, attention provides a more interpretable handle on which actors
+matter at a given moment. Yet sequence models do not automatically solve safety
+or grounding; they mostly provide a stronger architecture for relational context
+aggregation. Their practical value is highest when paired with structured scene
+encoders and disciplined training objectives.
+
+\subsection{LLMs as Cognitive Driving Agents}
+
+The most visible shift of Paradigm~III is the use of LLMs as high-level driving
+reasoners. Drive-like prompting frameworks showed that large language models can
+produce stepwise scene interpretation and decision rationales in novel settings
+\cite{fu2023drive,brown2020language}. DiLu added reflection and memory for
+lifelong adaptation \cite{wen2023dilu}. GPT-Driver treated motion planning as a
+language-generation problem \cite{mao2023gpt}. LanguageMPC proposed a more
+practical hybrid pattern: use language reasoning for strategic decomposition or
+cost shaping, but retain model predictive control for low-level execution
+\cite{sha2023languagempc}. Work such as Voyager is also relevant because it shows
+how LLM agents can accumulate reusable skills through memory and self-improvement
+loops \cite{wang2023voyager}.
+
+At present, these systems are best interpreted as \emph{cognitive overlays}
+rather than replacements for continuous control. Their strengths are semantic
+reasoning, explanation, and adaptation to rare scenarios; their weaknesses are
+latency, susceptibility to hallucination, dependence on prompt design, and lack
+of formal guarantees. For AD, the most credible near-term use is therefore a
+hybrid stack in which the LLM operates at the tactical or deliberative level,
+while classical planners or constrained policies execute the final control.
+
+\subsection{Safety, Transfer, and Scalability as Cross-Cutting Constraints}
+
+Paradigm~III also revived interest in constraints that classical benchmark-driven
+MARL often underemphasized. Safe RL and constrained optimization matter because
+rare collisions dominate deployment risk \cite{achiam2017constrained,alshiekh2018safe,prashanth2016variance,shalev2016safe}. Sim-to-real transfer remains difficult
+because simulators underrepresent long-tail behavior and sensing artifacts
+\cite{tobin2017domain,finn2017model}. Opponent modeling and explicit adaptation
+remain relevant for mixed traffic with humans or heterogeneous autonomous agents
+\cite{he2016opponent,zhang2018fully}. Finally, scaling to large populations or
+variable agent counts requires architectures that avoid quadratic coordination
+costs, motivating attention-based and deep-set style abstractions
+\cite{li2020deep,wen2022multi}.
+
+The key point is that safety, transfer, and scalability are not separate from
+the cognitive-agent agenda; they determine whether that agenda can matter in real
+systems.
+
+% ==========================================================
+\section{Cross-Cutting Synthesis}
+\label{sec:crosscut}
+
+\subsection{Which Methods Matter Most in Practice?}
+
+Across the literature, a stable practical hierarchy has emerged. For
+single-agent learning, the field-defining line is DAVE-2 $\rightarrow$
+conditional imitation $\rightarrow$ ChauffeurNet
+\cite{bojarski2016end,codevilla2018end,bansal2018chauffeur}. For generic
+cooperative MARL, the most influential algorithmic anchors remain QMIX,
+MADDPG, and MAPPO \cite{rashid2018qmix,lowe2017multi,yu2021surprising}. For
+interaction-aware scene modeling, VectorNet and closely related graph or
+polyline approaches became the main reference family
+\cite{gao2020vectornet,liang2020lanegcn,salzmann2020trajectron}. For explicit
+cooperative perception, V2VNet is more representative of realistic driving than
+many generic communication papers \cite{wang2020v2vnet}. For the cognitive turn,
+DiLu, GPT-Driver, and LanguageMPC currently define the design space more clearly
+than dozens of loosely similar prompt-engineering variants
+\cite{wen2023dilu,mao2023gpt,sha2023languagempc}.
+
+This weighted view does not imply that the remaining papers are unimportant.
+Rather, it indicates where the literature changed the field's shared vocabulary.
+The most useful survey compression therefore preserves depth for these anchors
+and moves adjacent variants into comparative clusters.
+
+\subsection{Three Persistent Tensions}
+
+\textbf{Credit assignment versus tractability.}
+Value decomposition is attractive because it preserves decentralized action
+selection, but its structural constraints can limit expressiveness. Actor-critic
+methods are more flexible, especially in continuous spaces, but can suffer from
+higher variance and weaker interpretability
+\cite{sunehag2018value,rashid2018qmix,foerster2018counterfactual,lowe2017multi,peng2021facmac}.
+
+\textbf{Explicit communication versus implicit coordination.}
+CTDE often yields strong coordination without online communication, especially
+when the shared reward already aligns agents. Explicit communication helps when
+information is truly distributed, as in cooperative perception, but it adds
+latency, bandwidth, and synchronization problems
+\cite{das2019tarmac,sukhbaatar2016learning,wang2020v2vnet,wang2020bandwidth}.
+
+\textbf{Closed-world optimization versus open-world robustness.}
+Benchmark gains do not guarantee rare-event competence. This is the shared
+failure that links the end of Paradigm~II to the rise of Paradigm~III. LLM-based
+agents improve semantic flexibility, but only hybrids currently offer a plausible
+path to both robustness and real-time control
+\cite{caesar2021nuplan,fu2023drive,wen2023dilu,sha2023languagempc}.
+
+\begin{table}[ht]
+\centering
+\caption{High-level comparison of the main method families reviewed in this survey.
+\label{tab:families}}
+\renewcommand{\arraystretch}{1.15}
+\small
+\begin{tabular}{p{2.7cm}p{2.0cm}p{2.0cm}p{2.2cm}p{5.0cm}}
+\toprule
+\textbf{Family} & \textbf{Action space} & \textbf{Coordination mechanism} & \textbf{Interpretability} & \textbf{Best fit in AD} \\
+\midrule
+Behavior cloning / imitation \cite{bojarski2016end,bansal2018chauffeur,codevilla2018end} & Continuous & None or implicit & Low--medium & Direct control under narrow distribution support \\
+Value decomposition \cite{sunehag2018value,rashid2018qmix,son2019qtran} & Mostly discrete & Shared value factorization & Medium & Cooperative control with explicit team reward \\
+Actor-critic CTDE \cite{lowe2017multi,foerster2018counterfactual,yu2021surprising,peng2021facmac} & Discrete or continuous & Centralized critic & Medium & Vehicle-level interaction and general MARL baselines \\
+Communication-aware MARL \cite{sukhbaatar2016learning,das2019tarmac,wang2020v2vnet} & Both & Learned messages / feature sharing & Medium & Cooperative perception and information-limited coordination \\
+Graph-based interaction models \cite{gao2020vectornet,liang2020lanegcn,salzmann2020trajectron} & N/A front-end & Relational scene encoding & Medium & Prediction, planning context, MARL front-ends \\
+Transformer / LLM agents \cite{wen2022multi,wen2023dilu,mao2023gpt,sha2023languagempc} & Semantic or hybrid & Attention / high-level reasoning & High at the semantic level & Long-tail reasoning, explanation, hybrid tactical planning \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ==========================================================
+\section{Open Challenges and Future Directions}
+\label{sec:challenges}
+
+\subsection{Challenge 1: Scaling Coordination Beyond Small Teams}
+
+Most canonical MARL papers still evaluate on modest agent populations or highly
+structured cooperation. Real traffic can involve dense, heterogeneous, partially
+connected swarms. Scaling requires both algorithmic abstraction and benchmark
+discipline. Mean-field and attention-style approximations are natural directions,
+but they must be validated in driving-specific settings rather than generic MARL
+alone \cite{zhou2020smarts,hernandez2019survey,li2020deep,wen2022multi}.
+
+\subsection{Challenge 2: Credit Assignment Under Sparse Safety Signals}
+
+Traffic rewards are sparse where it matters most: catastrophic failures are rare,
+but decisive. Counterfactual baselines, Shapley-style decompositions, and
+variance-aware constrained optimization remain promising, yet none has become a
+universal solution for closed-loop AD \cite{foerster2018counterfactual,wang2020shapley,su2021vdac,prashanth2016variance}.
+
+\subsection{Challenge 3: Safety Guarantees for Hybrid Agents}
+
+As AD stacks combine learned interaction models, constrained policies, and LLM
+reasoning, the safety problem becomes compositional. Safe RL and constraint
+shields provide partial tools \cite{achiam2017constrained,alshiekh2018safe,shalev2016safe},
+but future work needs interfaces that can verify or bound the behavior of
+hybrid language-plus-control systems rather than only isolated components.
+
+\subsection{Challenge 4: Realistic Communication Under Systems Constraints}
+
+Cooperative driving papers still often assume more reliable communication than
+production V2X can provide. Future work should evaluate policies under packet
+loss, delay, adversarial load, and asymmetric sensing, not just idealized
+message passing \cite{wang2020bandwidth,wang2021vbc,wang2020v2vnet}. This is a
+systems problem as much as a learning problem.
+
+\subsection{Challenge 5: Long-Tail Coverage and World Modeling}
+
+The literature increasingly agrees that logged datasets and standard simulators do
+not cover the true deployment tail. A major research direction is therefore the
+construction of richer generative or scenario-centric world models that can
+support adversarial stress testing, interaction-conditioned rollouts, and
+counterfactual safety analysis \cite{tobin2017domain,finn2017model,caesar2021nuplan,fu2023drive}. Progress here may matter more than yet another small improvement on a fixed benchmark.
+
+\subsection{Challenge 6: Real-Time Cognitive Reasoning}
+
+LLM-based agents are attractive precisely where classical policies are brittle,
+but inference cost makes them difficult to place directly in real-time control
+loops. Efficient deployment likely requires smaller distilled models, retrieval
+and memory mechanisms, or tiered architectures in which language models reason
+only when uncertainty or novelty exceeds a threshold
+\cite{wen2023dilu,mao2023gpt,sha2023languagempc}. The core research question is
+not whether LLMs can drive in principle, but how much cognition is necessary and
+where it should sit in the decision stack.
+
+% ==========================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+The development of learning-based autonomous driving can be read as a sequence of
+corrections to earlier simplifications. Single-agent imitation learning showed
+that perception-to-action policies were possible, but interaction and covariate
+shift limited robustness. MARL then supplied the language of coordination,
+credit assignment, and communication, but its benchmark gains did not fully solve
+long-tail brittleness or interpretability. Transformer and LLM-based agents now
+promise broader context aggregation and semantic reasoning, yet they introduce
+new problems of latency, grounding, and verification.
+
+The most credible synthesis is therefore hybrid. Strong AD systems are likely to
+combine structured scene encoders, MARL-compatible policy learning, explicit but
+resource-aware communication, constrained safety mechanisms, and high-level
+reasoning modules reserved for ambiguous or rare scenarios. That agenda is more
+modest than claims of end-to-end autonomy through any single paradigm, but it is
+also more consistent with what the literature has actually demonstrated.
+
+% ==========================================================
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+\end{document}
