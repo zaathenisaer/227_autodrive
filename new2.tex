@@ -532,6 +532,104 @@ systems.
 \section{Cross-Cutting Synthesis}
 \label{sec:crosscut}
 
+\subsection{Cross-Paradigm Master Comparison}
+
+Academic surveys usually benefit from a consolidated master table that lets
+readers compare representative methods side by side rather than reconstructing
+the landscape from dispersed narrative descriptions. Table~\ref{tab:master_methods}
+therefore complements the family-level summary in Table~\ref{tab:families} with
+a method-level comparison spanning the three paradigms. The goal is not to list
+every paper reviewed in this survey, but to expose the most influential design
+choices: what each method optimizes, what scenario it was validated on, whether
+it relies on communication or explicit safety structure, and which limitation
+remained unsolved after it appeared.
+
+\begin{table}[htbp]
+\centering
+\caption{Master comparison of representative methods across paradigms.
+\label{tab:master_methods}}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{p{1.7cm} p{0.8cm} p{1.3cm} p{1.8cm} p{1.7cm} p{1.5cm} p{1.6cm} p{1.9cm} p{2.2cm}}
+\toprule
+\textbf{Method} & \textbf{Year} & \textbf{Paradigm} & \textbf{Core mechanism} &
+\textbf{Scenario / benchmark} & \textbf{Safety strategy} &
+\textbf{Comm. dependency} & \textbf{Key strength} &
+\textbf{Primary limitation} \\
+\midrule
+DAVE-2~\cite{bojarski2016end} & 2016 & I & End-to-end behavior cloning from raw pixels &
+Real-road lane keeping & Implicit through expert data & None &
+Established end-to-end driving feasibility &
+Severe covariate shift and weak interaction reasoning \\
+
+ChauffeurNet~\cite{bansal2018chauffeur} & 2018 & I & Perturbation-augmented imitation with auxiliary losses &
+Urban driving logs & Collision/off-road penalties during training & None &
+Learns recovery behavior beyond nominal demonstrations &
+Still lacks explicit multi-agent game structure \\
+
+Social LSTM~\cite{alahi2016social} & 2016 & I/II bridge & Grid-based social pooling &
+Pedestrian interaction forecasting & Social collision-avoidance prior & None &
+First influential explicit interaction encoder &
+Grid scaling and limited map structure \\
+
+VectorNet~\cite{gao2020vectornet} & 2020 & II & Vectorized scene graph with hierarchical interaction modeling &
+Argoverse forecasting & Better structural priors & None &
+Efficient long-range map-agent reasoning &
+Prediction and planning remain partly decoupled \\
+
+PiP~\cite{song2020pip} & 2020 & II & Planning-informed prediction conditioned on ego candidates &
+Interactive planning / nuScenes-style settings & Joint safety-efficiency selection &
+None & Couples forecast and plan more realistically &
+Still approximates full strategic interaction with candidate sets \\
+
+QMIX~\cite{rashid2018qmix} & 2018 & II & Monotonic value decomposition under CTDE &
+Cooperative MARL / SMAC-style tasks & Reward design rather than explicit hard constraints &
+None at execution & Canonical cooperative MARL baseline &
+Restricted expressiveness and mainly discrete-action focus \\
+
+MADDPG~\cite{lowe2017multi} & 2017 & II & Centralized critic with decentralized actors &
+Mixed cooperative-competitive MARL & Stabilized training under non-stationarity &
+Train-time global state & Strong baseline for continuous multi-agent control &
+Critic scaling degrades with many agents \\
+
+MAPPO~\cite{yu2021surprising} & 2021 & II & PPO-style CTDE with centralized value function &
+General cooperative benchmarks & Stable policy optimization & None at execution &
+Simple, strong, reproducible baseline &
+Limited explicit credit assignment machinery \\
+
+V2VNet~\cite{wang2020v2vnet} & 2020 & II & Intermediate-feature V2V fusion with graph aggregation &
+Cooperative perception in occluded scenes & Multi-view robustness through feature sharing &
+V2V required & Realistic bridge from MARL communication to connected driving &
+Sensitive to packet loss, synchronization, and bandwidth \\
+
+MAT~\cite{wen2022multi} & 2022 & III & Autoregressive Transformer for joint multi-agent action modeling &
+General MARL benchmarks & Implicit via sequence-level policy structure &
+None at execution & Scales attention over agents and histories &
+Safety and deployment realism are still external to the model \\
+
+DiLu~\cite{wen2023dilu} & 2023 & III & LLM reasoning, reflection, and memory retrieval &
+Closed-loop urban driving & Reflective error correction & Optional cloud / high compute &
+Adapts to novel cases without retraining &
+Reliability depends on LLM faithfulness and latency \\
+
+LanguageMPC~\cite{sha2023languagempc} & 2023 & III & Slow-time language reasoning plus fast MPC control &
+Closed-loop driving tasks & MPC hard constraints with semantic planning &
+Optional cloud / high compute & Strong hybrid template for cognition plus control &
+Formal guarantees for the full stack remain incomplete \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\noindent Table~\ref{tab:master_methods} highlights a pattern that is easy to
+miss when papers are discussed only within their local subfields. Landmark
+methods do not differ merely in model size or benchmark score; they differ in
+which \\emph{problem formulation} they take seriously. DAVE-2 and ChauffeurNet
+primarily treat robustness to distributional shift. QMIX, MADDPG, and MAPPO
+primarily treat coordination under non-stationarity. V2VNet treats observability
+itself as a distributed systems problem. DiLu and LanguageMPC treat rare-event
+reasoning and semantic interpretation as first-class bottlenecks. This is why a
+cross-paradigm table is especially important in a survey of this field.
+
 \subsection{Which Methods Matter Most in Practice?}
 
 Across the literature, a stable practical hierarchy has emerged. For
@@ -600,6 +698,15 @@ Transformer / LLM agents \cite{wen2022multi,wen2023dilu,mao2023gpt,sha2023langua
 % ==========================================================
 \section{Open Challenges and Future Directions}
 \label{sec:challenges}
+
+This section intentionally pairs each open challenge with the most plausible
+near-term research direction, rather than listing unsolved problems in
+isolation. That distinction matters in this literature: some bottlenecks are
+primarily algorithmic (for example, credit assignment), some are infrastructural
+(long-tail scenario generation and evaluation), and some are systems-level
+(communication reliability and real-time LLM deployment). Treating them under a
+single heading keeps the discussion concise while still preserving the survey
+convention of moving from diagnosis to forward-looking synthesis.
 
 \subsection{Challenge 1: Scaling Coordination Beyond Small Teams}
 
