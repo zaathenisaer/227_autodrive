@@ -544,12 +544,15 @@ choices: what each method optimizes, what scenario it was validated on, whether
 it relies on communication or explicit safety structure, and which limitation
 remained unsolved after it appeared.
 
-\begin{table}[htbp]
+\begin{table}[ht]
 \centering
-\caption{Master comparison of representative methods across paradigms.
+\caption{Master comparison of representative methods across paradigms. The
+I–II label marks bridge methods that emerged before full MARL became
+dominant but already made interaction structure explicit.
 \label{tab:master_methods}}
-\resizebox{\linewidth}{!}{%
-\begin{tabular}{p{1.7cm} p{0.8cm} p{1.3cm} p{1.8cm} p{1.7cm} p{1.5cm} p{1.6cm} p{1.9cm} p{2.2cm}}
+\setlength{\tabcolsep}{2pt}
+\footnotesize
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}p{1.6cm} p{0.7cm} p{1.15cm} p{1.75cm} p{1.6cm} p{1.45cm} p{1.45cm} p{1.7cm} p{2.0cm}}
 \toprule
 \textbf{Method} & \textbf{Year} & \textbf{Paradigm} & \textbf{Core mechanism} &
 \textbf{Scenario / benchmark} & \textbf{Safety strategy} &
@@ -566,7 +569,7 @@ Urban driving logs & Collision/off-road penalties during training & None &
 Learns recovery behavior beyond nominal demonstrations &
 Still lacks explicit multi-agent game structure \\
 
-Social LSTM~\cite{alahi2016social} & 2016 & I/II bridge & Grid-based social pooling &
+Social LSTM~\cite{alahi2016social} & 2016 & I–II & Grid-based social pooling &
 Pedestrian interaction forecasting & Social collision-avoidance prior & None &
 First influential explicit interaction encoder &
 Grid scaling and limited map structure \\
@@ -616,19 +619,25 @@ Closed-loop driving tasks & MPC hard constraints with semantic planning &
 Optional cloud / high compute & Strong hybrid template for cognition plus control &
 Formal guarantees for the full stack remain incomplete \\
 \bottomrule
-\end{tabular}%
-}
+\end{tabular*}
 \end{table}
 
 \noindent Table~\ref{tab:master_methods} highlights a pattern that is easy to
 miss when papers are discussed only within their local subfields. Landmark
 methods do not differ merely in model size or benchmark score; they differ in
-which \\emph{problem formulation} they take seriously. DAVE-2 and ChauffeurNet
-primarily treat robustness to distributional shift. QMIX, MADDPG, and MAPPO
-primarily treat coordination under non-stationarity. V2VNet treats observability
-itself as a distributed systems problem. DiLu and LanguageMPC treat rare-event
-reasoning and semantic interpretation as first-class bottlenecks. This is why a
-cross-paradigm table is especially important in a survey of this field.
+which \emph{problem formulation} they prioritize. DAVE-2 established the
+feasibility of end-to-end driving, while ChauffeurNet directly targets
+robustness to distributional shift. Social LSTM, VectorNet, and
+PiP progressively reframe the core bottleneck as one of explicit interaction
+representation and prediction-planning coupling. QMIX, MADDPG, and MAPPO then
+treat coordination under non-stationarity as the central challenge. V2VNet
+treats observability itself as a distributed systems problem, while MAT explores
+how sequence modeling can scale coordination over larger agent contexts. DiLu
+and LanguageMPC finally treat rare-event reasoning and semantic interpretation
+as first-class bottlenecks. This is why a cross-paradigm table is especially
+important in a survey of this field. With that method-level comparison in place,
+we can turn from side-by-side description to the more selective question of
+which methods actually became the enduring reference points for subsequent work.
 
 \subsection{Which Methods Matter Most in Practice?}
 
