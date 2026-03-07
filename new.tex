@@ -1,0 +1,1058 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
+\usepackage{times}
+\usepackage{natbib}
+\setcitestyle{authoryear,open={(},close={)}}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{xcolor}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue,
+    pdfencoding=auto
+}
+
+\onehalfspacing
+\setlength{\parskip}{0.5em}
+\titlespacing{\section}{0pt}{14pt}{6pt}
+\titlespacing{\subsection}{0pt}{10pt}{4pt}
+\titlespacing{\subsubsection}{0pt}{8pt}{3pt}
+
+% =========================================================
+\title{\textbf{Multi-Agent Autonomous Driving: A Structured Survey of\\
+Learning, Interaction, and Cognitive Paradigms}}
+\author{\large Literature Review}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% =========================================================
+\begin{abstract}
+Multi-agent autonomous driving (MAAD) presents one of the most demanding
+challenges in modern artificial intelligence: enabling vehicles to navigate complex,
+dynamic traffic environments through coordinated perception, prediction, and
+decision-making. This survey provides a systematic review of the field, organized
+around a clear three-layer taxonomy. We first establish the formal foundations,
+framing single-agent driving as a Partially Observable Markov Decision Process
+(POMDP) and extending it to the Partially Observable Stochastic Game (POSG)
+model required for principled multi-agent reasoning. We then survey
+\textbf{(i) single-agent learning foundations}, covering behavior cloning from raw
+pixels \citep{bojarski2016end}, perturbation-based data synthesis to overcome
+covariate shift \citep{bansal2018chauffeur}, and policy gradient optimization
+\citep{schulman2017proximal}; \textbf{(ii) multi-agent interaction and coordination},
+examining the evolution from social-force grid pooling \citep{alahi2016social} and
+vectorized graph neural networks \citep{gao2020vectornet} to bi-directional
+prediction--planning coupling \citep{song2020pip}, Centralized Training
+Decentralized Execution (CTDE) reinforcement learning \citep{lowe2017multi},
+safety-constrained hierarchical RL \citep{shalev2016safe}, cooperative
+perception via V2X feature sharing \citep{wang2020v2vnet}, and scalable
+multi-agent training platforms \citep{palanisamy2020multi, zhou2020smarts}; and
+\textbf{(iii) LLM-based cognitive agents}, analyzing how large language models
+inject common-sense reasoning, memory-augmented adaptation, and interpretable
+decision chains into the driving stack
+\citep{fu2023drive, wen2023dilu, mao2023gpt, sha2023languagempc}.
+Across all paradigms, we synthesize the key technical contributions, identify the
+precise limitations each work addresses, and draw cross-cutting connections.
+We conclude with a structured analysis of open challenges: formal safety
+verification under distributional shift, bandwidth-constrained cooperative
+perception, real-time LLM inference, and the need for generative world models
+to cover long-tail scenarios.
+\end{abstract}
+
+\noindent\textbf{Keywords:} Multi-Agent Autonomous Driving, Imitation Learning,
+Deep Reinforcement Learning, Multi-Agent Reinforcement Learning, Graph Neural
+Networks, Trajectory Prediction, Vehicle-to-Vehicle Communication,
+Large Language Models, Cognitive Agents.
+
+\newpage
+\tableofcontents
+\newpage
+
+% ---------------------------------------------------------
+\section{Introduction}
+\label{sec:intro}
+
+Autonomous driving (AD) is a canonical testbed for intelligent systems research: it
+demands real-time fusion of noisy, high-dimensional sensor inputs; prediction of the
+intentions of heterogeneous road users; and execution of safe, efficient maneuvers
+in a continuously evolving, \emph{multi-agent} environment. Despite decades of
+engineering effort, achieving the robustness and generalization required for
+unrestricted public deployment remains an open problem.
+
+The historical arc of the field can be partitioned into three successive paradigm
+shifts, each motivated by well-defined limitations of its predecessor.
+
+\paragraph{Paradigm 1 -- Modular Pipelines and Early Learning.}
+Classical autonomous driving relied on a modular perception $\to$ prediction
+$\to$ planning $\to$ control stack. The promise of data-driven learning was first
+demonstrated at scale by \citet{bojarski2016end}, who showed that a convolutional
+network mapping raw front-camera images directly to steering commands could
+navigate real roads. This end-to-end approach exposed a fundamental problem:
+\emph{covariate shift}, where test-time states diverge from the training distribution
+and recovery behaviors were never learned. \citet{bansal2018chauffeur} addressed
+this with systematic perturbation and synthesis of adverse scenarios, a technique
+that proved even 30 million expert demonstrations were insufficient without such
+augmentation.
+
+\paragraph{Paradigm 2 -- Interaction-Aware Multi-Agent Systems.}
+Urban driving is inherently multi-agent: the optimal action for the ego-vehicle
+depends on the intentions of surrounding agents, which in turn depend on the
+ego-vehicle's own plan. Handling this mutual dependence required two independent
+advances: (a) \emph{representation} methods that encode the relational structure of
+traffic scenes compactly and efficiently, and (b) \emph{policy learning} algorithms
+that remain stable when multiple agents adapt simultaneously. On the representation
+front, the field evolved from grid-based social pooling \citep{alahi2016social} to
+vectorized graph neural networks \citep{gao2020vectornet}, and further to
+bi-directional prediction--planning coupling \citep{song2020pip}. On the policy
+learning front, the Centralized Training Decentralized Execution (CTDE) paradigm
+of \citet{lowe2017multi}, safety-constrained hierarchical RL \citep{shalev2016safe},
+connected multi-agent platforms \citep{palanisamy2020multi}, scalable training
+environments \citep{zhou2020smarts}, and intermediate-feature V2X sharing
+\citep{wang2020v2vnet} collectively defined the state of the art.
+
+\paragraph{Paradigm 3 -- LLM-Based Cognitive Agents.}
+Even well-trained multi-agent systems remain fragile in \emph{long-tail} scenarios
+(edge cases outside the statistical support of the training distribution). The
+emergence of large language models (LLMs) with broad world knowledge, chain-of-thought
+reasoning, and few-shot generalization has inspired a new class of \emph{cognitive
+driving agents}. \citet{fu2023drive} demonstrated that LLMs can reason through
+novel scenes step-by-step; \citet{wen2023dilu} equipped agents with
+reflection-and-memory mechanisms for lifelong adaptation; \citet{mao2023gpt}
+reformulated motion planning as a language modeling task; and
+\citet{sha2023languagempc} introduced a hierarchical neuro-symbolic architecture
+pairing LLM strategic reasoning with MPC execution.
+
+\subsection{Scope and Contributions}
+This survey covers 18 primary papers spanning 2016--2025. Our contributions over
+existing reviews \citep{kiran2021deep} are threefold. First, we adopt an explicit
+multi-agent framing throughout, placing all methods within either the POMDP or
+POSG formalism. Second, we construct a coherent three-layer taxonomy that
+distinguishes foundational single-agent learning from multi-agent interaction and
+from cognitive-level reasoning, enabling systematic comparison. Third, we dedicate
+a structured section to LLM-based paradigms, which have emerged predominantly
+after existing surveys were written. For each method we analyze: (1) the precise
+limitation it addresses, (2) the technical mechanism it introduces, and (3) the
+residual limitations that motivate subsequent work.
+
+\paragraph{Reference Weighting Strategy.}
+To keep the survey concise while preserving depth, we assign \emph{unequal}
+coverage to references. Tier-1 landmark works (e.g., DAVE-2, ChauffeurNet,
+MADDPG/CTDE, VectorNet, PiP, V2VNet, and representative LLM agents) receive
+full technical discussion with equations or architectural analysis. Tier-2
+works are used for focused comparison and evidence. Tier-3 works are retained
+mainly for context and historical continuity through brief mentions. This
+weighted treatment avoids giving all papers equal narrative space and keeps the
+overall manuscript within a standard survey length.
+
+\subsection{Paper Organization}
+Section~\ref{sec:background} establishes the formal problem framework.
+Section~\ref{sec:single} surveys single-agent learning foundations.
+Section~\ref{sec:interaction} examines multi-agent interaction and coordination.
+Section~\ref{sec:cognitive} reviews LLM-based cognitive agents.
+Section~\ref{sec:benchmarks} surveys simulation environments and evaluation
+benchmarks.
+Section~\ref{sec:challenges} synthesizes open challenges and future directions.
+Section~\ref{sec:conclusion} concludes.
+
+% ---------------------------------------------------------
+\section{Background and Problem Formulation}
+\label{sec:background}
+
+\subsection{Single-Agent Decision-Making: POMDP}
+The canonical framework for single-agent autonomous driving is the \emph{Partially
+Observable Markov Decision Process} (POMDP), defined by the tuple
+$\langle \mathcal{S}, \mathcal{A}, \mathcal{O}, T, R, \Omega, \gamma \rangle$:
+
+\begin{itemize}[noitemsep]
+  \item $\mathcal{S}$: world state (ego kinematics, road topology, hidden intents
+        of other agents).
+  \item $\mathcal{A}$: action space, either discrete (lane-change decisions) or
+        continuous ($\delta \in$ steering, $a \in$ throttle/brake).
+  \item $\mathcal{O}$: observation space from onboard sensors (camera, LiDAR,
+        radar, GPS).
+  \item $T(s_{t+1} | s_t, a_t)$: stochastic transition dynamics encoding vehicle
+        kinematics and environment evolution.
+  \item $R(s_t, a_t)$: reward encoding safety (collision avoidance), efficiency
+        (progress toward goal), and comfort (minimizing jerk).
+  \item $\Omega(o_t | s_t)$: observation emission model.
+  \item $\gamma \in [0, 1)$: discount factor.
+\end{itemize}
+
+The goal is to find a policy $\pi(a_t | o_{1:t})$ that maximizes the expected
+discounted return:
+\begin{equation}
+  \pi^* = \arg\max_\pi \; \mathbb{E}_{\tau \sim \pi}
+          \!\left[ \sum_{t=0}^{T} \gamma^t R(s_t, a_t) \right].
+  \label{eq:pomdp}
+\end{equation}
+
+\subsection{Multi-Agent Extension: POSG}
+Standard POMDP formulations become inadequate in traffic because the transition
+function $T$ depends not only on the ego-vehicle's action $a^0_t$ but also on
+the actions of $N-1$ other agents $a^1_t, \dots, a^{N-1}_t$, whose policies are
+simultaneously evolving during training. This \emph{non-stationarity} violates the
+Markov property from the perspective of any single learner.
+
+\citet{palanisamy2020multi} formally adopts the \emph{Partially Observable
+Stochastic Game} (POSG) $\langle \mathcal{N}, \mathcal{S}, \{\mathcal{A}^i\},
+\{\mathcal{O}^i\}, T, \{R^i\}, \gamma \rangle$, where $\mathcal{N} =
+\{1,\dots,N\}$ is the set of agents and each agent $i$ has its own action space
+$\mathcal{A}^i$, observation space $\mathcal{O}^i$, and reward function $R^i$.
+The joint transition is:
+\begin{equation}
+  T(s_{t+1} | s_t, a^1_t, \dots, a^N_t).
+\end{equation}
+When $R^i = R^j$ for all $i, j$, the game is \emph{fully cooperative}; when
+rewards are adversarial, it is \emph{zero-sum}; traffic typically falls into
+\emph{mixed} cooperative-competitive settings.
+
+The POSG framing clarifies the two principal challenges of MAAD:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Non-stationarity}: Other agents adapt, so the environment is
+        non-Markovian from any single agent's perspective.
+  \item \textbf{Exponential joint space}: The joint action space
+        $|\mathcal{A}|^N$ scales exponentially with the number of agents.
+\end{enumerate}
+
+\citet{shalev2016safe} further observe that, for policy gradient methods,
+the gradient estimator variance grows proportionally to $1/p^2$ for an accident
+probability $p \ll 1$ (derived analytically from the REINFORCE variance bounds
+in their Lemma~3), making unconstrained RL impractical for safety-critical
+applications without architectural safeguards.
+
+\subsection{Architectural Dichotomy: Modular vs.\ End-to-End}
+The POMDP/POSG formalism can be instantiated through two broad architectural
+choices:
+
+\paragraph{Modular Pipelines.}
+Perception $\to$ Prediction $\to$ Planning $\to$ Control subsystems are designed
+and validated independently. The advantages are interpretability and modular
+testing \citep{caesar2021nuplan}. The critical disadvantage is \emph{cascading
+error}: bounding-box representations lose contextual information (e.g., pedestrian
+gaze), and the prediction module may produce worst-case forecasts that paralyze
+the planner in a well-known ``frozen robot'' failure mode \citep{song2020pip}.
+
+\paragraph{End-to-End Learning.}
+A differentiable function $f_\theta: \mathcal{O} \to \mathcal{A}$ is learned
+jointly, optimizing the terminal driving objective without hand-crafted intermediate
+representations \citep{bojarski2016end}. The entire feature hierarchy is learned
+for the task, but the resulting black-box model is hard to debug, certify, or
+bound from safety constraints.
+
+The papers reviewed in this survey represent the full spectrum of these
+architectural choices, increasingly augmented by LLM-based reasoning components.
+
+% ---------------------------------------------------------
+\section{Single-Agent Learning Foundations}
+\label{sec:single}
+
+Before multi-agent interaction can be addressed, robust single-agent policies must
+first be established. This section examines the foundational works on behavior
+cloning and policy optimization that underpin all subsequent MAAD methods.
+
+\subsection{End-to-End Behavior Cloning: DAVE-2}
+\label{sec:dave}
+
+\citet{bojarski2016end} from NVIDIA introduced \emph{DAVE-2}, the first large-scale
+demonstration of end-to-end convolutional neural network (CNN) driving. A
+nine-layer CNN with approximately 27 million connections maps three forward-facing
+camera images (with synthetic viewpoint perturbations) directly to steering angle.
+The network was trained on 72 hours of human driving using the mean-squared error
+behavioral cloning (BC) loss:
+\begin{equation}
+  \mathcal{L}_{\text{BC}}(\theta) =
+    \mathbb{E}_{(o, a) \sim \mathcal{D}}\!\left[ \|\pi_\theta(o) - a \|^2 \right].
+  \label{eq:bc}
+\end{equation}
+A key insight was the use of \emph{synthetic viewpoint perturbation}: by
+offsetting the camera laterally and recording the corresponding corrective steering
+command, the authors generated recovery behaviors in a computationally cheap way.
+
+\paragraph{Technical Significance.}
+DAVE-2 established the feasibility of implicit feature learning for driving (lane
+markings, road boundaries, and even distant curve curvature emerged without
+explicit supervision labels). However, its failure mode is well-defined:
+Equation~\eqref{eq:bc} minimizes one-step prediction error under the training
+distribution $\mathcal{D}$, but by a standard BC analysis, this agent
+accrues \emph{quadratic} compounding error with trajectory length because the
+agent, once displaced, has no recovery mechanism. This covariate shift problem
+directly motivated the work of \citet{bansal2018chauffeur}.
+
+\subsection{Overcoming Covariate Shift: ChauffeurNet}
+\label{sec:chauffeur}
+
+\citet{bansal2018chauffeur} demonstrated that even a dataset of 30 million
+human-driving clips fails to prevent covariate shift under standard BC. Their key
+insight is that an agent trained only on \emph{optimal} demonstrations never
+observes perturbed or adversarial states, so its policy degrades catastrophically
+once it drifts from nominal conditions.
+
+ChauffeurNet addresses this through \emph{imitation with synthesized perturbation}.
+The system processes rendered mid-level scene representations (agent bounding
+boxes, road map, speed, traffic lights) rather than raw pixels, enabling controlled
+numerical augmentation. Training adds:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Geometric perturbation}: Expert trajectories are warped
+        randomly, injecting off-route and near-collision states.
+  \item \textbf{Environment dropout}: Randomly masking objects in the input forces
+        the agent to learn robust representations.
+  \item \textbf{Loss on collision and off-road events}: Auxiliary losses penalize
+        synthesized near-accident trajectories and encourage active recovery.
+\end{enumerate}
+The aggregate loss is
+\begin{equation}
+  \mathcal{L} = \mathcal{L}_{\text{imitation}}
+              + \lambda_c\,\mathcal{L}_{\text{collision}}
+              + \lambda_r\,\mathcal{L}_{\text{road}}
+              + \lambda_g\,\mathcal{L}_{\text{geometry}},
+\end{equation}
+where $\lambda_c, \lambda_r, \lambda_g$ weight the collision, road-geometry, and
+trajectory-geometry penalties respectively. This \emph{synthesize the worst}
+strategy expands the training distribution to cover recovery states without
+collecting real data for every possible perturbation.
+
+\paragraph{Residual Limitation.}
+ChauffeurNet still treats other agents as passive objects in the scene
+representation; it does not explicitly model their future intentions or strategic
+interactions. This limitation is addressed by the multi-agent interaction methods
+of Section~\ref{sec:interaction}.
+
+\subsection{Policy Optimization: PPO}
+\label{sec:ppo}
+
+When closed-loop interaction is required, RL methods can directly optimize
+Equation~\eqref{eq:pomdp}. The most widely deployed policy gradient algorithm in
+the AD community is \emph{Proximal Policy Optimization} (PPO)
+\citep{schulman2017proximal}. PPO replaces the second-order trust-region
+constraint of TRPO with a first-order \emph{clipped surrogate objective}:
+\begin{equation}
+  L^{\text{CLIP}}(\theta)
+  = \mathbb{E}_t \!\left[
+      \min\!\left( r_t(\theta)\hat{A}_t,\;
+            \text{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\hat{A}_t
+      \right)
+    \right],
+  \label{eq:ppo}
+\end{equation}
+where $r_t(\theta) = \pi_\theta(a_t|s_t)/\pi_{\theta_{\text{old}}}(a_t|s_t)$ is
+the probability ratio, $\hat{A}_t$ is the generalized advantage estimate, and
+$\epsilon$ (typically 0.1--0.2) clips the ratio to prevent excessively large
+policy updates. The clipping removes the incentive for the optimizer to move the
+policy far from $\pi_{\theta_{\text{old}}}$ in a single step, providing
+monotonic improvement guarantees without solving a quadratic programming subproblem.
+
+\paragraph{Relevance to MAAD.}
+PPO has been adopted as the default optimizer in multi-agent training loops
+(MACAD-Gym \citep{palanisamy2020multi}, SMARTS \citep{zhou2020smarts}) because
+its conservative update rule reduces the risk of policy collapse when the apparent
+reward landscape shifts as co-agent policies evolve. \citet{kiran2021deep} provide
+a comprehensive survey situating PPO and related DRL methods (DQN, DDPG, SAC)
+within the full spectrum of autonomous driving tasks.
+
+% ---------------------------------------------------------
+\section{Multi-Agent Interaction and Coordination}
+\label{sec:interaction}
+
+Having established single-agent foundations, this section examines how the field
+has addressed the two POSG challenges identified in Section~\ref{sec:background}:
+\emph{representing} coupled agent behavior and \emph{training} stable policies in
+a non-stationary multi-agent environment.
+
+\subsection{Representing Agent Interactions: From Grid Pooling to Graph Networks}
+
+\subsubsection{Social LSTM: Spatiotemporal Social Pooling}
+\label{sec:social}
+
+The earliest learning-based approach to agent interaction was introduced by
+\citet{alahi2016social} for pedestrian trajectory prediction. Their insight is that
+pedestrians follow implicit social norms (collision avoidance, group cohesion,
+lane-keeping on pavements) that cannot be captured by independent Kalman filters.
+
+\emph{Social LSTM} uses a separate LSTM for each agent, sharing hidden states
+through a novel \emph{Social Pooling} layer. For agent $i$ at time $t$, the pooled
+state is
+\begin{equation}
+  H_i^{\text{pool}} =
+    \sum_{j \in \mathcal{N}_i}
+    \mathcal{E}\!\left( \mathbb{1}_{[x_j, y_j \in \text{cell}(m,n)]} \cdot
+                  W_e\, h_{j,t-1} \right),
+\end{equation}
+where $\mathcal{N}_i$ are neighbors within a spatial threshold, the Boolean
+indicator selects neighbors in occupancy-grid cell $(m,n)$, $W_e$ is a learned
+embedding, and $\mathcal{E}$ is an element-wise max operation. The pooled tensor
+is concatenated with the agent's own embedding and fed as input to its LSTM.
+
+\paragraph{Significance and Limitations.}
+Social LSTM demonstrated that trajectory prediction is fundamentally a
+\emph{relational} problem; ignoring neighbor states leads to physically
+implausible predictions (e.g., interpenetrating bounding boxes). However, the
+fixed-size occupancy grid introduces two structural limitations: (1) spatial
+resolution is a hyperparameter that cannot adapt to varying agent densities, and
+(2) representing a large intersection or motorway segment requires a very large
+grid, making computation prohibitive. These limitations motivated the vectorized
+graph approach of VectorNet.
+
+\subsubsection{VectorNet: Vectorized Scene Representation with GNNs}
+\label{sec:vectornet}
+
+\citet{gao2020vectornet} introduced a paradigm shift from rasterization to
+\emph{vectorization}. Instead of rendering the scene into a pixel grid, VectorNet
+represents every map element (lane centerline, crosswalk boundary, stop line) and
+every agent's historical trajectory as an ordered sequence of vectors (polylines).
+Each vector $v_i$ encodes start point, end point, and semantic attributes.
+
+VectorNet employs a two-level hierarchical GNN:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Subgraph network}: Within each polyline (e.g., one lane), a local
+        GNN encodes pairwise vector relations into a polyline-level node feature
+        $p_i = \text{GNN}_{\text{local}}(\{v_j : v_j \in \text{polyline}_i\})$.
+  \item \textbf{Global interaction graph}: All polyline nodes $\{p_i\}$ form a
+        fully connected graph. Multi-head self-attention models global
+        interdependencies between lane topology and dynamic agents:
+        \begin{equation}
+          p_i' = \text{Attention}\!\left( p_i W_Q,\; \{p_j\} W_K,\; \{p_j\} W_V \right).
+          \label{eq:vn_attn}
+        \end{equation}
+\end{enumerate}
+The vectorized representation reduces parameter count by over 70\% compared to
+CNN-based renderers and achieves state-of-the-art performance on Argoverse motion
+forecasting, because the GNN can directly exploit structural adjacency (e.g., a
+lane successor relation) that would be invisible to a convolutional filter.
+
+\paragraph{Relevance to Multi-Agent Settings.}
+VectorNet's global attention (Equation~\ref{eq:vn_attn}) scales to arbitrarily
+many agents and map elements without grid-size constraints, making it the
+predominant scene encoder in modern MAAD stacks. The learned attention weights
+also provide interpretable evidence of which agents and lanes most influenced
+each prediction.
+
+\subsubsection{PiP: Closing the Prediction--Planning Loop}
+\label{sec:pip}
+
+A structural limitation shared by all methods described so far is that prediction
+and planning are \emph{decoupled}: the predictor forecasts other agents'
+trajectories independently of the ego-vehicle's future actions. This creates the
+``frozen robot problem'' identified by \citet{song2020pip}: if the ego-vehicle's
+intent is unknown, a conservative predictor assigns high probability to trajectories
+that cut off the ego-vehicle, causing the planner to halt indefinitely.
+
+\citet{song2020pip} addressed this with \emph{Planning-informed Prediction} (PiP).
+The key innovation is to \emph{condition} the prediction module on a set of
+candidate ego-vehicle trajectories $\{\tau^k_{\text{ego}}\}_{k=1}^K$:
+\begin{equation}
+  \hat{Y}_i = f_{\text{pred}}\!\left( X_i,\; X_{-i},\; \tau^k_{\text{ego}} \right),
+  \quad k \in \{1, \dots, K\},
+\end{equation}
+where $X_i$ is the past trajectory of target agent $i$, $X_{-i}$ are other
+contextual agents, and $\tau^k_{\text{ego}}$ informs the predictor that the
+ego-vehicle \emph{intends} a specific maneuver (e.g., lane merge). The planning
+module then selects the ego trajectory whose induced prediction is globally safest
+and most efficient.
+
+PiP demonstrated on nuScenes that this feedback loop reduces collision rate and
+improves trajectory realism, confirming the game-theoretic view that driving is a
+\emph{bi-directional} interaction: the ego-vehicle's plan shapes others' reactions,
+which in turn constrains the optimal plan.
+
+\subsection{Multi-Agent Reinforcement Learning}
+
+\subsubsection{Safety-Constrained Hierarchical RL}
+\label{sec:rss}
+
+\citet{shalev2016safe} identify two fundamental obstacles to applying RL directly
+to autonomous driving: (1) the non-stationarity of the multi-agent environment
+invalidates the Markov assumption, and (2) the gradient variance of policy gradient
+methods scales as $O(1/p^2)$ for accident probability $p$, making learning
+impractically slow when safety is enforced only through a large negative reward.
+
+Their solution decomposes the policy into two components:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Policy for Desires ($\pi_D$)}: A deep neural network, trained by
+        policy gradient, encodes preferences for comfort and efficiency (smooth
+        speed, comfortable turns). This component is \emph{learned}.
+  \item \textbf{Hard Safety Constraints}: A trajectory planner enforces inviolable
+        physical and legal constraints (safe following distance, right-of-way) as
+        hard bounds on the actions proposed by $\pi_D$. This component is
+        \emph{not learned}.
+\end{enumerate}
+The resulting \emph{Responsibility-Sensitive Safety} (RSS) architecture acts as a
+hierarchical filter: RL explores freely within a provably safe action subset,
+circumventing the variance problem because catastrophic-reward trajectories are
+never executed.
+
+Crucially, \citet{shalev2016safe} also show that \emph{policy gradient does not
+require the Markov assumption}: the REINFORCE likelihood-ratio gradient estimator
+remains unbiased when the environment transition depends on other agents, as long
+as their policies are fixed (or slowly varying) during a rollout. This observation
+provides theoretical justification for applying policy gradient in MAAD settings.
+
+\subsubsection{MADDPG: Centralized Training, Decentralized Execution}
+\label{sec:maddpg}
+
+\citet{lowe2017multi} address the non-stationarity problem at the algorithmic level.
+Naive Q-learning fails in multi-agent settings because the non-stationary returns
+invalidate the Bellman optimality condition. Policy gradient methods accumulate
+variance proportional to the number of agents, since each agent's gradient is
+computed under uncertainty about co-agents' actions.
+
+The \emph{Multi-Agent Deep Deterministic Policy Gradient} (MADDPG) algorithm
+resolves this by adopting a \emph{centralized critic, decentralized actor} design:
+\begin{itemize}[noitemsep]
+  \item \textbf{Centralized critic}: $Q_i(\mathbf{o}, a^1, \dots, a^N)$ takes the
+        joint observation and action tuple as input during training, producing a
+        stable value function because the joint environment \emph{is} stationary
+        conditioned on all agents' actions.
+  \item \textbf{Decentralized actor}: $\pi_i(a^i | o^i)$ conditions only on local
+        observation $o^i$ at execution time, enabling deployment without
+        infrastructure-level coordination.
+\end{itemize}
+To handle cooperative-competitive mixed settings, the actor is updated via the
+centralized critic's gradient:
+\begin{equation}
+  \nabla_{\theta_i} J(\theta_i)
+  = \mathbb{E}\!\left[
+      \nabla_{\theta_i} \log \pi_i(a^i|o^i)\;
+      Q_i^\pi(\mathbf{o}, a^1, \dots, a^N)
+    \right].
+  \label{eq:maddpg}
+\end{equation}
+An ensemble of policies is further maintained per agent to encourage robustness to
+diverse partner strategies.
+
+\paragraph{Impact on MAAD.}
+The CTDE paradigm has become the dominant paradigm for MAAD: SMARTS
+\citep{zhou2020smarts}, MACAD-Gym \citep{palanisamy2020multi}, and most subsequent
+works adopt centralized critics with decentralized execution. The framework cleanly
+separates the concerns of training infrastructure (which may have access to global
+state via V2X or roadside units) from real-time deployment (which must act on local
+observations alone).
+
+\subsubsection{MACAD-Gym: Connected Autonomous Driving Platform}
+\label{sec:macad}
+
+\citet{palanisamy2020multi} operationalize the POSG formulation into an open
+research platform, \emph{MACAD-Gym}, built on top of the CARLA simulator
+\citep{dosovitskiy2017carlaopenurbandriving}. The platform provides:
+\begin{itemize}[noitemsep]
+  \item A set of multi-agent connected AD scenarios (urban intersections, ramps,
+        merges) with heterogeneous agent types.
+  \item A taxonomy of multi-agent environments along three axes: (a) nature of
+        tasks (cooperative/competitive/mixed), (b) nature of agents
+        (homogeneous/heterogeneous), and (c) nature of the environment
+        (stationary/non-stationary).
+  \item An extensible gym-compatible API enabling plug-in of any RL algorithm.
+\end{itemize}
+Baseline MACAD-Agents trained with PPO on raw camera observations demonstrate
+successful policy learning in a partially observable stop-sign-controlled
+three-way intersection. The platform's value lies in making the abstract POSG
+formalism concrete and reproducible.
+
+\subsubsection{SMARTS: Scalable Multi-Agent RL Training School}
+\label{sec:smarts}
+
+\citet{zhou2020smarts} identify a practical gap: existing simulators either lack
+realistic multi-agent traffic behavior models or lack the programmatic API needed
+for MARL research. \emph{SMARTS} addresses this with three design principles:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Diverse social vehicle behavior}: Realistic background vehicles are
+        modeled with behavior models including IDM (car-following), MOBIL
+        (lane-change), and custom aggressive/distracted archetypes, avoiding the
+        problem of agents that learn to exploit unrealistic passive opponents.
+  \item \textbf{Ego-agent heterogeneity}: Multiple ego-agent types (sedan,
+        motorcycle, bus) with distinct dynamics can be trained simultaneously.
+  \item \textbf{Reproducible scenario definitions}: Scenarios are declaratively
+        specified in a human-readable format, ensuring reproducibility across labs.
+\end{enumerate}
+SMARTS introduced a large-scale empirical analysis showing that social vehicle
+diversity substantially affects the generalization of trained policies, highlighting
+a benchmark-quality issue in prior work where opponents were too predictable.
+
+\subsection{Cooperative Perception via V2X: V2VNet}
+\label{sec:v2vnet}
+
+All methods discussed so far rely on \emph{onboard} sensing only. \citet{wang2020v2vnet}
+argue that this imposes a fundamental ceiling on safety: a single viewpoint cannot
+see around occlusions (a child chasing a ball behind a parked van, for instance).
+Vehicle-to-Vehicle (V2V) communication can, in principle, share observations from
+multiple viewpoints; the practical challenge is choosing \emph{what} to share.
+
+\citet{wang2020v2vnet} analyze three candidates:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Raw sensor data} (LiDAR point clouds): High bandwidth requirement;
+        infeasible within the V2X bandwidth constraints analyzed by \citet{wang2020v2vnet}.
+  \item \textbf{High-level tracks} (3D bounding boxes): Low bandwidth but loses
+        context about object appearance and uncertainty.
+  \item \textbf{Intermediate feature maps}: Compressed activations from an
+        intermediate backbone layer strike the optimal bandwidth--accuracy tradeoff.
+\end{enumerate}
+V2VNet implements option 3 by having each SDV broadcast its compressed feature map
+$\mathbf{F}_j^{\text{ego}}$. The receiving vehicle aggregates features from all
+$j \in \mathcal{N}(i)$ (within 70\,m) using a spatially-aware GNN:
+\begin{equation}
+  \mathbf{F}_i^{\text{fused}}
+  = \text{GNN}_{\text{agg}}\!\left(
+      \mathbf{F}_i^{\text{ego}},\;
+      \{T_{j \to i}(\mathbf{F}_j^{\text{ego}})\}_{j \in \mathcal{N}(i)}
+    \right),
+\end{equation}
+where $T_{j \to i}$ applies a learned spatial transformation to align vehicle
+$j$'s feature map into vehicle $i$'s coordinate frame. The fused feature map
+feeds a joint perception and prediction (P\&P) head.
+
+Experiments on the authors' V2VSim dataset demonstrate that V2VNet substantially
+improves detection AP and motion forecasting ADE/FDE in scenarios with occlusions,
+while meeting bandwidth constraints. This work opens the direction of
+\emph{cooperative MAAD}: agents that not only plan cooperatively but also
+\emph{perceive} cooperatively.
+
+% ---------------------------------------------------------
+\section{LLM-Based Cognitive Agents}
+\label{sec:cognitive}
+
+The methods surveyed in Sections~\ref{sec:single}--\ref{sec:interaction} are all
+trained by optimization: they minimize empirical risk or maximize expected reward
+over a fixed training distribution. Their shared Achilles' heel is the
+\emph{long-tail problem}: rare, semantically complex scenarios (a funeral
+procession blocking a lane; a police officer overriding a green light) are
+statistically underrepresented in any finite training corpus, yet carry
+disproportionate safety significance.
+
+Large language models (LLMs) offer a qualitatively different resource: broad world
+knowledge acquired from internet-scale text, the ability to perform multi-step
+chain-of-thought reasoning, and few-shot adaptation from task descriptions rather
+than gradient updates. This section surveys the four most influential attempts to
+harness these capabilities for autonomous driving.
+
+\subsection{Drive Like a Human: Chain-of-Thought Scene Reasoning}
+\label{sec:dlh}
+
+\citet{fu2023drive} argue that the defining difference between a novice and an
+expert human driver is not reflexes but \emph{contextual reasoning}: the ability
+to interpret an ambiguous situation (a cyclist drifting toward the lane center)
+as having a probable cause (avoiding a pothole) and responding appropriately.
+They frame this as a question: can an LLM replicate this reasoning from natural
+language scene descriptions?
+
+Their system employs \emph{Chain-of-Thought} (CoT) prompting, structuring the LLM
+response as a three-stage inference trace:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Observation}: Translate the sensor-derived scene state into a
+        natural language description (``A pedestrian is standing at the crosswalk
+        edge, looking left'').
+  \item \textbf{Reasoning}: The LLM infers probable intent
+        (``They are checking for oncoming traffic; they will likely cross shortly'').
+  \item \textbf{Decision}: The LLM generates an actionable response
+        (``Reduce speed to 15\,km/h and prepare to yield'').
+\end{enumerate}
+Empirical evaluation on a curated set of long-tail scenarios demonstrates
+substantially higher success rates than purely end-to-end models, particularly for
+scenarios involving implicit social context and non-standard road configurations.
+
+\paragraph{Limitations.}
+The system outputs textual decisions, which must be translated to low-level
+controls by a downstream interpreter. It does not incorporate a memory of past
+failures, so the same reasoning error can recur. Both limitations are addressed by
+DiLu (Section~\ref{sec:dilu}) and LanguageMPC (Section~\ref{sec:lmpc}).
+
+\subsection{DiLu: Memory-Augmented Knowledge-Driven Driving}
+\label{sec:dilu}
+
+\citet{wen2023dilu} propose that an ideal driving agent should behave like an
+experienced driver: one who not only applies general knowledge to new situations
+but also recalls and applies lessons from previous mistakes. They introduce
+\emph{DiLu}, a four-component framework:
+
+\begin{enumerate}
+  \item \textbf{Environment Interaction Module}: A vision-language encoder
+        translates the visual scene into a structured textual description, including
+        agent identities, relative positions, velocities, and traffic signals.
+
+  \item \textbf{Reasoning Module}: An LLM (GPT-4) receives the scene description
+        and retrieved memories, then generates a decision with an explicit
+        chain-of-thought rationale.
+
+  \item \textbf{Reflection Module}: After execution, if a safety criterion is
+        violated or the reward falls below a threshold, the reflection module
+        prompts the LLM to perform root-cause analysis (``The rear vehicle braked
+        harder than expected when I changed lanes; I underestimated its speed'').
+        This analysis is encoded as a \emph{lesson}.
+
+  \item \textbf{Memory Bank}: Lessons are stored as dense vector embeddings using
+        a sentence encoder. At inference time, the $k$ nearest lessons (by cosine
+        similarity) are retrieved and prepended to the LLM prompt, enabling the
+        reasoning module to avoid previously encountered failure modes.
+\end{enumerate}
+
+The retrieval-augmented generation loop enables \emph{few-shot continual learning}:
+DiLu improves from episode to episode without gradient updates to the LLM backbone,
+a form of meta-adaptation critical for deployment in diverse and changing
+environments. Experiments in CARLA and a closed-loop highway simulator show that
+DiLu's reflection-and-memory mechanism substantially outperforms the same LLM
+backbone used without memory.
+
+\paragraph{Distinction from Prior Work.}
+Unlike end-to-end models that encode experience implicitly in network weights,
+DiLu externalizes experience into an interpretable, queryable memory. Unlike
+Drive Like a Human, DiLu closes the loop from decision to outcome, enabling
+active error correction. The limitation is that the quality of the reflection is
+bounded by the LLM's ability to diagnose its own failures---a property not yet
+formally verified.
+
+\subsection{GPT-Driver: Motion Planning as Language Modeling}
+\label{sec:gptdriver}
+
+\citet{mao2023gpt} take a different angle: rather than using LLMs for high-level
+reasoning only, they reformulate \emph{trajectory prediction itself} as a language
+generation task. Continuous waypoint coordinates are discretized and tokenized
+into a text sequence, and GPT-3.5 is fine-tuned to complete this sequence
+conditioned on a scene description:
+\begin{equation}
+  P(T | O) = \prod_{i=1}^{L} P(w_i | w_{1:i-1}, O),
+  \label{eq:gpt_driver}
+\end{equation}
+where $T = (w_1, \dots, w_L)$ is the tokenized trajectory and $O$ is the
+natural language scene observation. Crucially, the scene description also
+includes \emph{textual reasoning}: the model first generates a reasoning trace
+(``The lead vehicle is decelerating; I should maintain a larger gap'') and then
+generates the numerical trajectory conditioned on that trace.
+
+Evaluated on the nuScenes benchmark, GPT-Driver achieves state-of-the-art
+displacement errors with fewer parameters than specialized motion planners.
+The results suggest that the LLM's sequence modeling capacity, trained on vast
+amounts of structured text, generalizes effectively to the structured token
+sequences of driving trajectories. Furthermore, the reasoning trace provides
+intrinsic interpretability: an operator can read \emph{why} the vehicle chose a
+particular path.
+
+\paragraph{Key Insight.}
+The reformulation as language modeling enables \emph{in-context learning}: by
+providing a few demonstrations of novel scenarios in the prompt, the model
+generalizes without fine-tuning. This is qualitatively different from all
+prior methods that require gradient updates to adapt to new conditions.
+
+\subsection{LanguageMPC: Neuro-Symbolic Hierarchical Control}
+\label{sec:lmpc}
+
+A practical barrier to LLM-based driving is latency: state-of-the-art LLMs
+require hundreds of milliseconds per query, whereas safety-critical control
+loops demand decisions at 10--20\,Hz. \citet{sha2023languagempc} resolve this
+tension through a hierarchical neuro-symbolic architecture.
+
+The system operates on two time scales:
+\begin{enumerate}
+  \item \textbf{Strategic level (LLM, $\sim$1--2\,Hz)}: The LLM receives a
+        natural language scene description and generates a high-level behavioral
+        directive (e.g., ``Overtake the slow vehicle by merging left''), together
+        with a set of numerical parameters that govern the lower-level objective:
+        target lane $l^*$, target speed $v^*$, and weights $\mathbf{w}$ for the
+        MPC cost function.
+  \item \textbf{Execution level (MPC, 10--20\,Hz)}: A Model Predictive Control
+        loop solves a constrained trajectory optimization:
+        \begin{equation}
+          \min_{u_{0:H}}
+          \sum_{k=0}^{H-1} \mathbf{w}^\top \phi(x_k, u_k, l^*, v^*)
+          \quad \text{s.t.} \quad x_{k+1} = f(x_k, u_k),\;
+          g(x_k, u_k) \leq 0,
+          \label{eq:mpc}
+        \end{equation}
+        where $\phi$ is the feature vector of the cost function, $f$ is the
+        vehicle dynamics model, and $g$ encodes hard safety constraints. The MPC
+        runs in real time and handles dynamic obstacle avoidance and constraint
+        satisfaction that the LLM need not reason about explicitly.
+\end{enumerate}
+
+The decoupling is bidirectional: the MPC handles real-time safety, while the LLM
+provides semantic adaptability (e.g., adjusting the weight on $v^*$ when passing
+a school zone). This ``thinking fast and slow'' architecture directly addresses
+the latency and safety-guarantee limitations of purely LLM-based approaches.
+
+\paragraph{Comparison Across LLM Methods.}
+Table~\ref{tab:llm_comparison} summarizes the four LLM-based cognitive agents.
+
+\begin{table}[htbp]
+\centering
+\caption{Comparison of LLM-based cognitive driving agents.}
+\label{tab:llm_comparison}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lllll}
+\toprule
+\textbf{Method} & \textbf{LLM Role} & \textbf{Memory} &
+\textbf{Low-Level Ctrl.} & \textbf{Key Strength} \\
+\midrule
+Drive Like a Human \citep{fu2023drive} & Scene reasoning & None &
+External & CoT interpretability \\
+DiLu \citep{wen2023dilu} & Reasoning + reflection & Vector store &
+External & Continual adaptation \\
+GPT-Driver \citep{mao2023gpt} & Trajectory generation & None &
+Self (language) & In-context planning \\
+LanguageMPC \citep{sha2023languagempc} & Strategic planning & None &
+MPC (hard) & Real-time safety \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+% ---------------------------------------------------------
+\section{Simulation Environments and Benchmarks}
+\label{sec:benchmarks}
+
+Rigorous empirical evaluation is indispensable for MAAD research. This section
+surveys the major simulation platforms and evaluation benchmarks, distinguishing
+\emph{open-loop} (replay-based) and \emph{closed-loop} (reactive agent) protocols.
+
+\subsection{CARLA: High-Fidelity Urban Simulation}
+
+\citet{dosovitskiy2017carlaopenurbandriving} introduced \emph{CARLA}, an open-source urban driving simulator, which
+has become the de facto standard urban driving simulator in the research community.
+CARLA provides:
+\begin{itemize}[noitemsep]
+  \item Physically realistic rendering with configurable weather, lighting, and
+        road surface conditions.
+  \item A flexible sensor suite: RGB cameras, depth cameras, semantic segmentation
+        cameras, LiDAR, radar, GPS, and IMU.
+  \item A Python API for programmatic scenario definition and agent interaction.
+  \item OpenDRIVE-based HD map support for accurate road geometry.
+\end{itemize}
+CARLA's modular architecture supports both \emph{autopilot-controlled} and
+\emph{algorithm-controlled} agents, enabling controlled experiments where only
+the ego-vehicle policy is under test while traffic is managed by a rule-based
+autopilot. DiLu \citep{wen2023dilu}, MACAD-Gym \citep{palanisamy2020multi}, and
+GPT-Driver ablations all use CARLA as their primary environment.
+
+\subsection{SMARTS: Interaction-Focused Multi-Agent Environment}
+
+Whereas CARLA prioritizes visual fidelity, \citet{zhou2020smarts} designed
+\emph{SMARTS} (Scalable Multi-Agent Reinforcement Learning Training School) with
+the specific goal of \emph{diverse social vehicle behavior}. Its contributions
+complement CARLA:
+\begin{itemize}[noitemsep]
+  \item A library of behavior models (IDM, MOBIL, aggressive, timid, distracted)
+        enabling realistic, heterogeneous traffic.
+  \item A gym-compatible interface with support for observations in multiple
+        modalities (bird's-eye view, waypoints, agent observations).
+  \item Scenario definition via SUMO road network files, enabling import of
+        real-world road topologies.
+\end{itemize}
+SMARTS empirically demonstrates that training against diverse social vehicles
+significantly improves the \emph{robustness} of learned policies, a result with
+direct implications for sim-to-real transfer: real traffic is far more diverse
+than static or homogeneous simulated opponents.
+
+\subsection{NuPlan: Closed-Loop Planning Benchmark}
+
+\citet{caesar2021nuplan} identify a systemic issue with the \emph{open-loop}
+evaluation protocol dominant in prior benchmarks: when a planned trajectory
+diverges from the ground-truth log trajectory, the system is penalized even if
+the deviation is deliberate and safe (e.g., the ego-vehicle brakes to yield to an
+aggressive merger). More critically, open-loop evaluation cannot assess whether
+a planning algorithm handles \emph{interactive} scenarios correctly, since
+surrounding agents do not react to the ego's plan.
+
+NuPlan introduces the first large-scale \emph{closed-loop planning benchmark}
+with reactive simulation:
+\begin{itemize}[noitemsep]
+  \item Over 1,200 hours of real-world driving log data across Las Vegas, Boston,
+        Pittsburgh, and Singapore.
+  \item Reactive agent models that respond to the ego-vehicle's maneuvers in
+        simulation, providing a realistic assessment of interaction quality.
+  \item A challenge suite with 1,080 unique scenarios spanning intersections,
+        merge zones, and unprotected turns.
+  \item Evaluation metrics including the \emph{Weighted Multi-metric Score} (WMS)
+        combining progress, comfort, collision avoidance, and traffic rule
+        adherence.
+\end{itemize}
+The NuPlan challenge has become the standard benchmark for comparing learned
+planners (imitation-based, RL-based, and LLM-based) on an equal footing.
+
+\subsection{Summary: Simulator--Benchmark Landscape}
+
+Table~\ref{tab:simulators} summarizes the key properties of the surveyed platforms.
+A clear trend is the shift from perception-focused datasets (nuScenes) to
+interaction-and-planning-focused closed-loop benchmarks (NuPlan, SMARTS, MACAD),
+reflecting the community's recognition that perception metrics do not predict
+planning safety.
+
+\begin{table}[htbp]
+\centering
+\caption{Comparison of simulation environments and benchmarks.}
+\label{tab:simulators}
+\begin{tabular}{lllll}
+\toprule
+\textbf{Platform} & \textbf{Loop} & \textbf{Multi-Agent} &
+\textbf{Social Vehicles} & \textbf{Primary Use} \\
+\midrule
+CARLA \citep{dosovitskiy2017carlaopenurbandriving} & Both & Limited & Rule-based &
+IL/RL training \& eval \\
+SMARTS \citep{zhou2020smarts} & Closed & Full & Diverse models &
+MARL training \\
+MACAD-Gym \citep{palanisamy2020multi} & Closed & Full & CARLA agents &
+Connected AD research \\
+NuPlan \citep{caesar2021nuplan} & Closed & Full & Reactive &
+Planning benchmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------
+\section{Open Challenges and Future Directions}
+\label{sec:challenges}
+
+This section synthesizes the residual limitations identified across all surveyed
+paradigms into six structured open challenges.
+
+\subsection{Formal Safety Verification for Learned Policies}
+\label{sec:safe}
+
+The RSS framework \citep{shalev2016safe} provides rule-based safety shields for
+well-defined scenarios (following distance, right-of-way). However, LLM-based
+cognitive agents generate decisions that are neither rule-based nor numerically
+bounded. A GPT-4-generated decision can be linguistically coherent but physically
+infeasible or safety-critical (``hallucinated'' decisions). Future work must
+address \emph{formal verification of neuro-symbolic policies}: can RSS-like
+invariants be proven to hold for the combined LLM--MPC architecture of
+LanguageMPC \citep{sha2023languagempc}? Promising directions include conformal
+prediction wrappers around LLM outputs and model-checking of LLM instruction
+compliance.
+
+\subsection{Scalable Cooperative Perception under Communication Constraints}
+\label{sec:coop}
+
+V2VNet \citep{wang2020v2vnet} demonstrates that intermediate feature sharing
+outperforms both raw data and high-level track sharing. However, the work assumes
+synchronized, lossless communication among vehicles within 70\,m. Real V2X
+deployments face packet loss rates of 5--20\%, communication latency of 10--50\,ms,
+and heterogeneous hardware clocks. Future work must develop \emph{asynchronous,
+robust aggregation} methods that degrade gracefully under network impairments.
+Furthermore, scaling cooperative perception to intersections with 20+ agents
+requires hierarchical aggregation strategies beyond the pairwise GNN of V2VNet.
+
+\subsection{Real-Time LLM Inference at the Edge}
+\label{sec:latency}
+
+LLM-based methods \citep{fu2023drive, wen2023dilu, mao2023gpt, sha2023languagempc}
+rely on cloud-hosted or GPU-accelerated foundation models. At the time of those
+publications (2023--2024), cloud API query latency for GPT-class models
+typically ranged from hundreds of milliseconds to several seconds under standard
+conditions---two orders of magnitude above the $\sim$10\,ms budget for real-time
+control (while practical latency may improve in subsequent deployments). Even
+LanguageMPC's 1--2\,Hz LLM cycle requires a stable low-latency network
+connection. Edge deployment will
+require: (a) model distillation \citep{kiran2021deep} to transfer reasoning
+capabilities into compact on-board models, and (b) speculative decoding and
+hardware-aware quantization to reduce latency while preserving reasoning quality.
+
+\subsection{Generative World Models for Long-Tail Scenarios}
+\label{sec:worldmodel}
+
+A recurring theme across all paradigms is data scarcity in the tail of the driving
+distribution. Perturbation-based data augmentation (ChauffeurNet \citep{bansal2018chauffeur})
+and diverse social vehicle models (SMARTS \citep{zhou2020smarts}) partially address
+this, but \emph{systematic} coverage of rare events (road debris, emergency vehicle
+override, multi-party collision avoidance) requires generative approaches.
+Diffusion-based world models that synthesize photo-realistic, dynamically
+consistent driving scenes conditional on rare scenario descriptions are an
+emerging frontier. These models would enable MAAD agents to be trained and evaluated
+on effectively unlimited synthetic long-tail scenarios.
+
+\subsection{Bidirectional Prediction--Planning at Scale}
+\label{sec:gametheory}
+
+PiP \citep{song2020pip} demonstrates that conditioning prediction on a small set
+of $K$ ego-vehicle candidate trajectories improves joint forecasting accuracy. This
+is a first-order approximation to the full \emph{extensive-form game} between the
+ego-vehicle and $N$ surrounding agents, which has exponentially many joint
+strategy profiles. Extending PiP to multi-agent scenes with many interacting
+vehicles, and connecting it to the CTDE training paradigm of MADDPG
+\citep{lowe2017multi}, remains an open research problem. Differentiable game
+solvers and Monte Carlo tree search over the joint action space are plausible
+directions.
+
+\subsection{Sim-to-Real Transfer and Domain Adaptation}
+\label{sec:simreal}
+
+All surveyed training environments (CARLA, SMARTS, MACAD-Gym, NuPlan) exhibit a
+visual and dynamic reality gap relative to real-world deployment. While perception
+domain adaptation has been studied extensively, \emph{behavioral} sim-to-real
+transfer---ensuring that policies learned against simulated social vehicles generalize
+to real human drivers---is less understood. The diversity of social vehicle models in
+SMARTS \citep{zhou2020smarts} is a positive step, but human driving behavior is
+long-tailed in ways that parametric behavior models cannot fully capture.
+
+% ---------------------------------------------------------
+\section{Conclusion}
+\label{sec:conclusion}
+
+This survey has organized the multi-agent autonomous driving literature around a
+three-layer taxonomy and traced a coherent technological progression. We summarize
+the key insights at each layer.
+
+\textbf{Single-Agent Foundations.}
+End-to-end behavior cloning \citep{bojarski2016end} established that neural
+networks can implicitly learn the visual features required for driving from raw
+sensor data, but its vulnerability to covariate shift is fundamental and not
+remediable by data scale alone. ChauffeurNet \citep{bansal2018chauffeur} showed
+that \emph{synthesizing} adverse states during training is more sample-efficient
+than collecting them. PPO \citep{schulman2017proximal} provides a stable policy
+gradient algorithm that has become the default optimizer in MAAD training loops.
+
+\textbf{Multi-Agent Interaction and Coordination.}
+Representing agent interactions has evolved from local, grid-based social pooling
+\citep{alahi2016social} to efficient, long-range vectorized GNNs
+\citep{gao2020vectornet}. The decoupling between prediction and planning, long
+taken for granted, has been shown by PiP \citep{song2020pip} to cause systematic
+failures in interactive scenarios; bi-directional coupling is necessary. On the
+policy learning side, CTDE frameworks \citep{lowe2017multi} resolve non-stationarity
+by providing a globally consistent critic during training. Safety-constrained
+hierarchical RL \citep{shalev2016safe} provides a complementary solution by
+enforcing hard physical constraints that bound the space of learned policies.
+Connected platforms \citep{palanisamy2020multi, zhou2020smarts} operationalize
+these ideas at research scale. V2VNet \citep{wang2020v2vnet} extends cooperation
+from policy to perception, demonstrating that intermediate feature sharing is the
+optimal V2X communication strategy.
+
+\textbf{LLM-Based Cognitive Agents.}
+Large language models bring qualitatively new capabilities to autonomous driving:
+chain-of-thought scene reasoning \citep{fu2023drive}, memory-augmented continual
+adaptation \citep{wen2023dilu}, in-context motion planning \citep{mao2023gpt},
+and real-time-safe neuro-symbolic control \citep{sha2023languagempc}. The common
+thread is that LLMs provide a \emph{prior} over driving semantics that allows
+generalization to long-tail scenarios without expensive retraining.
+
+\textbf{The Convergence Ahead.}
+The evidence across all three layers points toward a common architectural
+direction: \emph{hybrid systems} that combine data-driven neural components for
+pattern recognition and trajectory generation, structured symbolic components for
+safety-critical constraint enforcement, and foundation model components for
+semantic reasoning and continual adaptation. Realizing this vision requires
+progress on all six open challenges identified in Section~\ref{sec:challenges}.
+The field is well-positioned to make that progress: the mathematical foundations
+(POSG, CTDE, RSS), the empirical platforms (CARLA, SMARTS, NuPlan), and the
+cognitive tools (LLMs, chain-of-thought, retrieval-augmented generation) are all
+in place.
+
+% ---------------------------------------------------------
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
