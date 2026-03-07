@@ -93,6 +93,8 @@ Large Language Models, Cognitive Agents.
 \section{Introduction}
 \label{sec:intro}
 
+\subsection{Motivation and Problem Statement}
+
 Autonomous driving (AD) is a canonical testbed for intelligent systems research: it
 demands real-time fusion of noisy, high-dimensional sensor inputs; prediction of the
 intentions of heterogeneous road users; and execution of safe, efficient maneuvers
@@ -102,6 +104,8 @@ unrestricted public deployment remains an open problem.
 
 The historical arc of the field can be partitioned into three successive paradigm
 shifts, each motivated by well-defined limitations of its predecessor.
+
+\subsection{Driving Forces Behind Paradigm Shifts}
 
 \paragraph{Paradigm 1 -- Modular Pipelines and Early Learning.}
 Classical autonomous driving relied on a modular perception $\to$ prediction
@@ -143,7 +147,7 @@ reformulated motion planning as a language modeling task; and
 \citet{sha2023languagempc} introduced a hierarchical neuro-symbolic architecture
 pairing LLM strategic reasoning with MPC execution.
 
-\subsection{Scope and Contributions}
+\subsection{Survey Scope, Selection Criteria, and Contributions}
 This survey covers 18 primary papers spanning 2016--2025. Our contributions over
 existing reviews \citep{kiran2021deep} are threefold. First, we adopt an explicit
 multi-agent framing throughout, placing all methods within either the POMDP or
@@ -155,16 +159,6 @@ after existing surveys were written. For each method we analyze: (1) the precise
 limitation it addresses, (2) the technical mechanism it introduces, and (3) the
 residual limitations that motivate subsequent work.
 
-\paragraph{Reference Weighting Strategy.}
-To keep the survey concise while preserving depth, we assign \emph{unequal}
-coverage to references. Tier-1 landmark works (e.g., DAVE-2, ChauffeurNet,
-MADDPG/CTDE, VectorNet, PiP, V2VNet, and representative LLM agents) receive
-full technical discussion with equations or architectural analysis. Tier-2
-works are used for focused comparison and evidence. Tier-3 works are retained
-mainly for context and historical continuity through brief mentions. This
-weighted treatment avoids giving all papers equal narrative space and keeps the
-overall manuscript within a standard survey length.
-
 \paragraph{Selection Scope and Representativeness.}
 The reviewed set is intentionally curated rather than exhaustive: we prioritize
 papers that (i) introduced a methodological turning point, (ii) became de facto
@@ -174,18 +168,27 @@ venue filtering to maintain representativeness across imitation learning, MARL,
 cooperative perception, and LLM-based driving, while avoiding redundant
 near-duplicate variants.
 
+\subsection{Comparison with Existing Surveys}
+Existing autonomous-driving surveys \citep{kiran2021deep} typically emphasize
+either single-agent RL or perception-centric pipelines. In contrast, this
+review explicitly centers multi-agent interaction, compares representation and
+coordination mechanisms under a shared POSG lens, and includes a dedicated
+analysis of recent LLM-based driving agents that are largely absent from
+earlier surveys.
+
 \subsection{Paper Organization}
 Section~\ref{sec:background} establishes the formal problem framework.
 Section~\ref{sec:single} surveys single-agent learning foundations.
 Section~\ref{sec:interaction} examines multi-agent interaction and coordination.
 Section~\ref{sec:cognitive} reviews LLM-based cognitive agents.
 Section~\ref{sec:benchmarks} surveys simulation environments and evaluation
-benchmarks.
+benchmarks. Section~\ref{sec:crosscut} provides cross-cutting comparison across
+paradigms.
 Section~\ref{sec:challenges} synthesizes open challenges and future directions.
 Section~\ref{sec:conclusion} concludes.
 
 % ---------------------------------------------------------
-\section{Background and Problem Formulation}
+\section{Formal Foundations and Problem Formulation}
 \label{sec:background}
 
 \subsection{Single-Agent Decision-Making: POMDP}
@@ -273,7 +276,7 @@ The papers reviewed in this survey represent the full spectrum of these
 architectural choices, increasingly augmented by LLM-based reasoning components.
 
 % ---------------------------------------------------------
-\section{Single-Agent Learning Foundations}
+\section{Paradigm I: Single-Agent Learning Foundations}
 \label{sec:single}
 
 Before multi-agent interaction can be addressed, robust single-agent policies must
@@ -380,7 +383,7 @@ a comprehensive survey situating PPO and related DRL methods (DQN, DDPG, SAC)
 within the full spectrum of autonomous driving tasks.
 
 % ---------------------------------------------------------
-\section{Multi-Agent Interaction and Coordination}
+\section{Paradigm II: Multi-Agent Interaction and Coordination}
 \label{sec:interaction}
 
 Having established single-agent foundations, this section examines how the field
@@ -636,7 +639,7 @@ while meeting bandwidth constraints. This work opens the direction of
 \emph{perceive} cooperatively.
 
 % ---------------------------------------------------------
-\section{LLM-Based Cognitive Agents}
+\section{Paradigm III: LLM-Based Cognitive Agents}
 \label{sec:cognitive}
 
 The methods surveyed in Sections~\ref{sec:single}--\ref{sec:interaction} are all
@@ -923,8 +926,13 @@ Planning benchmark \\
 \end{tabular}
 \end{table}
 
+\section{Cross-Cutting Analysis}
+\label{sec:crosscut}
+
+This section consolidates comparisons that span all paradigms and are not
+specific to any single method family.
+
 \subsection{Cross-Paradigm Critical Comparison}
-\label{sec:mastercompare}
 
 Academic surveys usually require a \emph{large comparison table} that allows
 readers to evaluate methods side by side. Table~\ref{tab:master_methods}
